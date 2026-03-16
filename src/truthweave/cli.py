@@ -58,6 +58,16 @@ def _metric_macro_name(key: str) -> str:
     return "Metric" + "".join(part.capitalize() for part in parts)
 
 
+def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
+    if not base_dir.exists():
+        return {}
+    hashes: dict[str, str] = {}
+    for path in sorted(base_dir.rglob("*")):
+        if path.is_file():
+            hashes[str(path.relative_to(base_dir).as_posix())] = sha256_file(path)
+    return hashes
+
+
 def _load_pipeline_config(repo_root: Path) -> dict[str, Any]:
     pipeline_path = repo_root / "conf" / "pipeline.yaml"
     if not pipeline_path.exists():
@@ -123,6 +133,12 @@ def _build_paper_assets(paper_id: str) -> None:
         },
         "generated": {
             "variables_tex_sha256": sha256_file(variables_path),
+            "figures_sha256": _collect_dir_hashes(
+                paper_dir / config["paths"]["figures_dir"]
+            ),
+            "tables_sha256": _collect_dir_hashes(
+                paper_dir / config["paths"]["tables_dir"]
+            ),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
     }

@@ -40,6 +40,8 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
     paper_dir = tmp_path / "papers" / paper_id
     (paper_dir / "auto").mkdir(parents=True)
     (paper_dir / "styles").mkdir()
+    (paper_dir / "figures").mkdir()
+    (paper_dir / "tables").mkdir()
     _write_file(
         paper_dir / "truthweave.yml",
         OmegaConf.to_yaml(
@@ -78,6 +80,8 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
         },
         "generated": {
             "variables_tex_sha256": "0" * 64,
+            "figures_sha256": {},
+            "tables_sha256": {},
             "generated_at": "2024-01-01T00:00:00Z",
         },
     }
@@ -155,3 +159,36 @@ def test_check_mode_ci_fails_on_undefined_metric_macro(
     output = capsys.readouterr().out
     assert "[FAIL:ARGUMENT_TRACE]" in output
     assert "\\MetricUnknown" in output
+
+
+def test_check_mode_dev_warns_on_orphan_metrics(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "auto" / "variables.tex",
+        "\\newcommand{\\MetricMean}{1}\n\\newcommand{\\MetricN}{1000}\n",
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    check_command("paper1", mode="dev")
+
+    output = capsys.readouterr().out
+    assert "[WARN:ARGUMENT_COVERAGE]" in output
+    assert "claim_support=1.00" in output
+
+
+def test_check_mode_ci_fails_on_stale_figure_provenance(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(tmp_path / "papers" / "paper1" / "figures" / "f1.txt", "artifact")
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "Figure/table assets are stale" in output

@@ -23,7 +23,18 @@ def _extract_used_metric_macros(tex_path: Path) -> set[str]:
     return set(pattern.findall(tex_path.read_text()))
 
 
+def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
+    if not base_dir.exists():
+        return {}
+    hashes: dict[str, str] = {}
+    for path in sorted(base_dir.rglob("*")):
+        if path.is_file():
+            hashes[str(path.relative_to(base_dir).as_posix())] = sha256_file(path)
+    return hashes
+
+
 def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Issue]:
+    issues: list[Issue] = []
     config = load_paper_config(paper_dir / "truthweave.yml")
     auto_dir = paper_dir / config["paths"]["auto_dir"]
     manifest_path = auto_dir / "MANIFEST.json"
@@ -75,22 +86,68 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
             )
         ]
 
+    generated = manifest.get("generated", {})
+    expected_figures = generated.get("figures_sha256")
+    expected_tables = generated.get("tables_sha256")
+    if not isinstance(expected_figures, dict) or not isinstance(expected_tables, dict):
+        fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        return [
+            Issue(
+                category="FRESHNESS",
+                severity="FAIL",
+                message=(
+                    f"Missing figure/table provenance in MANIFEST for {paper_id}; "
+                    "rebuild paper assets."
+                ),
+                fix=fix,
+                recheck=recheck,
+                paths=[str(manifest_path)],
+            )
+        ]
+
+    figures_dir = paper_dir / config["paths"]["figures_dir"]
+    tables_dir = paper_dir / config["paths"]["tables_dir"]
+    actual_figures = _collect_dir_hashes(figures_dir)
+    actual_tables = _collect_dir_hashes(tables_dir)
+    if actual_figures != expected_figures or actual_tables != expected_tables:
+        fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        return [
+            Issue(
+                category="FRESHNESS",
+                severity="FAIL",
+                message=(
+                    f"Figure/table assets are stale for {paper_id}; "
+                    "run build-paper-assets."
+                ),
+                fix=fix,
+                recheck=recheck,
+                paths=[str(manifest_path), str(figures_dir), str(tables_dir)],
+            )
+        ]
+
     tex_path = paper_dir / config.get("main", "main.tex")
     variables_path = auto_dir / "variables.tex"
     defined = _extract_defined_metric_macros(variables_path)
     used = _extract_used_metric_macros(tex_path)
+    supported = used & defined
+
+    # Claim support ratio tracks how many metric claims are backed by generated macros.
+    support_ratio = 1.0 if not used else len(supported) / len(used)
     missing = sorted(used - defined)
     if missing:
         fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
         recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
         severity = "FAIL" if mode == "ci" else "WARN"
-        return [
+        issues.append(
             Issue(
                 category="ARGUMENT_TRACE",
                 severity=severity,
                 message=(
                     f"Undefined metric macro(s) in {tex_path}: "
                     + ", ".join(f"\\{name}" for name in missing)
+                    + f" (claim_support={support_ratio:.2f})"
                 ),
                 fix=(
                     "Ensure claims reference generated metric macros from "
@@ -99,5 +156,27 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
                 recheck=recheck,
                 paths=[str(tex_path), str(variables_path)],
             )
-        ]
-    return []
+        )
+
+    orphan = sorted(defined - used)
+    if mode == "dev" and orphan:
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        issues.append(
+            Issue(
+                category="ARGUMENT_COVERAGE",
+                severity="WARN",
+                message=(
+                    "Unused metric macro(s) detected in auto/variables.tex: "
+                    + ", ".join(f"\\{name}" for name in orphan)
+                    + f" (claim_support={support_ratio:.2f}, orphan_metrics={len(orphan)})"
+                ),
+                fix=(
+                    "Reference generated metric macros in paper text or reduce "
+                    "unused metric outputs in experiments/analysis."
+                ),
+                recheck=recheck,
+                paths=[str(tex_path), str(variables_path)],
+            )
+        )
+
+    return issues
