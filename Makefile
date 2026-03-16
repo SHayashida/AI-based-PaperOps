@@ -44,7 +44,7 @@ analysis:
 	fi
 
 analysis-all:
-	@for name in $$(uv run python -c 'from pathlib import Path;print(" ".join([p.stem for p in Path("src/paperops/analysis").glob("*.py") if p.name != "__init__.py"]))'); do \
+	@for name in $$(uv run python -c 'from pathlib import Path;print(" ".join([p.stem for p in Path("src/truthweave/analysis").glob("*.py") if p.name != "__init__.py"]))'); do \
 		echo "Running analysis $$name"; \
 		uv run python -m truthweave.analysis.$$name; \
 	done

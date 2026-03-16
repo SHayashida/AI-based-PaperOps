@@ -60,6 +60,7 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
         ),
     )
     _write_file(paper_dir / "main.tex", "Example metric: \\MetricMean.\n")
+    _write_file(paper_dir / "auto" / "variables.tex", "\\newcommand{\\MetricMean}{1}\n")
 
     run_dir = tmp_path / "runs" / "run1"
     metrics_path = run_dir / "metrics.json"
@@ -138,3 +139,19 @@ def test_create_exp_scaffold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
     assert (tmp_path / "conf" / "exp" / "myexp.yaml").exists()
     assert (tmp_path / "src" / "truthweave" / "experiments" / "myexp.py").exists()
+
+
+def test_check_mode_ci_fails_on_undefined_metric_macro(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(tmp_path / "papers" / "paper1" / "main.tex", "Claim: \\MetricUnknown.\n")
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "[FAIL:ARGUMENT_TRACE]" in output
+    assert "\\MetricUnknown" in output
