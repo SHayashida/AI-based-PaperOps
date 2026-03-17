@@ -192,3 +192,81 @@ def test_check_mode_ci_fails_on_stale_figure_provenance(
 
     output = capsys.readouterr().out
     assert "Figure/table assets are stale" in output
+
+
+def test_check_mode_ci_fails_on_claim_support_threshold(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "truthweave.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "engine": "latexmk",
+                "main": "main.tex",
+                "bib": "refs.bib",
+                "paths": {
+                    "auto_dir": "auto",
+                    "figures_dir": "figures",
+                    "tables_dir": "tables",
+                },
+                "quality": {
+                    "argument": {
+                        "min_claim_support_ci": 0.9,
+                    }
+                },
+            }
+        ),
+    )
+    _write_file(
+        tmp_path / "papers" / "paper1" / "main.tex",
+        "Claim: \\MetricMean and \\MetricUnknown.\n",
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "[FAIL:ARGUMENT_SUPPORT]" in output
+    assert "claim_support=0.50 < min_claim_support_ci=0.90" in output
+
+
+def test_check_mode_dev_respects_orphan_threshold(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "truthweave.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "engine": "latexmk",
+                "main": "main.tex",
+                "bib": "refs.bib",
+                "paths": {
+                    "auto_dir": "auto",
+                    "figures_dir": "figures",
+                    "tables_dir": "tables",
+                },
+                "quality": {
+                    "argument": {
+                        "max_orphan_metrics_dev": 1,
+                    }
+                },
+            }
+        ),
+    )
+    _write_file(
+        tmp_path / "papers" / "paper1" / "auto" / "variables.tex",
+        "\\newcommand{\\MetricMean}{1}\n\\newcommand{\\MetricN}{1000}\n",
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    check_command("paper1", mode="dev")
+
+    output = capsys.readouterr().out
+    assert "[WARN:ARGUMENT_COVERAGE]" not in output

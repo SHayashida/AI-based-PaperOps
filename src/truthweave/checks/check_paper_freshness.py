@@ -33,9 +33,22 @@ def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
     return hashes
 
 
+def _argument_policy(config: dict) -> tuple[float, int]:
+    quality = config.get("quality", {})
+    argument = quality.get("argument", {}) if isinstance(quality, dict) else {}
+    min_claim_support_ci = argument.get("min_claim_support_ci", 1.0)
+    max_orphan_metrics_dev = argument.get("max_orphan_metrics_dev", 0)
+    if not isinstance(min_claim_support_ci, (int, float)):
+        min_claim_support_ci = 1.0
+    if not isinstance(max_orphan_metrics_dev, int):
+        max_orphan_metrics_dev = 0
+    return float(min_claim_support_ci), max_orphan_metrics_dev
+
+
 def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Issue]:
     issues: list[Issue] = []
     config = load_paper_config(paper_dir / "truthweave.yml")
+    min_claim_support_ci, max_orphan_metrics_dev = _argument_policy(config)
     auto_dir = paper_dir / config["paths"]["auto_dir"]
     manifest_path = auto_dir / "MANIFEST.json"
     if not manifest_path.exists():
@@ -136,6 +149,26 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
     # Claim support ratio tracks how many metric claims are backed by generated macros.
     support_ratio = 1.0 if not used else len(supported) / len(used)
     missing = sorted(used - defined)
+    if mode == "ci" and support_ratio < min_claim_support_ci:
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        issues.append(
+            Issue(
+                category="ARGUMENT_SUPPORT",
+                severity="FAIL",
+                message=(
+                    f"Claim support ratio below threshold for {paper_id}: "
+                    f"claim_support={support_ratio:.2f} < min_claim_support_ci={min_claim_support_ci:.2f} "
+                    f"(claims={len(used)}, unsupported_claims={len(missing)})"
+                ),
+                fix=(
+                    "Align paper claims with generated metrics or lower "
+                    "quality.argument.min_claim_support_ci in truthweave.yml when justified."
+                ),
+                recheck=recheck,
+                paths=[str(tex_path), str(variables_path)],
+            )
+        )
+
     if missing:
         fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
         recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
@@ -159,7 +192,7 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
         )
 
     orphan = sorted(defined - used)
-    if mode == "dev" and orphan:
+    if mode == "dev" and len(orphan) > max_orphan_metrics_dev:
         recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
         issues.append(
             Issue(
@@ -168,7 +201,10 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
                 message=(
                     "Unused metric macro(s) detected in auto/variables.tex: "
                     + ", ".join(f"\\{name}" for name in orphan)
-                    + f" (claim_support={support_ratio:.2f}, orphan_metrics={len(orphan)})"
+                    + (
+                        f" (claim_support={support_ratio:.2f}, orphan_metrics={len(orphan)}, "
+                        f"max_orphan_metrics_dev={max_orphan_metrics_dev})"
+                    )
                 ),
                 fix=(
                     "Reference generated metric macros in paper text or reduce "

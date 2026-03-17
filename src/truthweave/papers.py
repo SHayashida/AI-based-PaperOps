@@ -23,6 +23,12 @@ def _default_paper_config() -> dict[str, Any]:
         "style": {"TEXINPUTS": ["styles", "."]},
         "build": {"latexmk_args": ["-pdf", "-interaction=nonstopmode"]},
         "inputs": {"metrics_source": "latest"},
+        "quality": {
+            "argument": {
+                "min_claim_support_ci": 1.0,
+                "max_orphan_metrics_dev": 0,
+            }
+        },
     }
 
 
