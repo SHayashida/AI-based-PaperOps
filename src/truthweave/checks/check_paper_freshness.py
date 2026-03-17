@@ -33,6 +33,23 @@ def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
     return hashes
 
 
+def _compute_argument_audit(tex_path: Path, variables_path: Path) -> dict[str, object]:
+    defined = _extract_defined_metric_macros(variables_path)
+    used = _extract_used_metric_macros(tex_path)
+    supported = used & defined
+    unsupported = sorted(used - defined)
+    orphan = sorted(defined - used)
+    claim_support = 1.0 if not used else len(supported) / len(used)
+    return {
+        "claim_support": round(claim_support, 4),
+        "claims_count": len(used),
+        "unsupported_claims": len(unsupported),
+        "orphan_metrics": len(orphan),
+        "unsupported_macros": unsupported,
+        "orphan_macros": orphan,
+    }
+
+
 def _argument_policy(config: dict) -> tuple[float, int]:
     quality = config.get("quality", {})
     argument = quality.get("argument", {}) if isinstance(quality, dict) else {}
@@ -142,6 +159,41 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
 
     tex_path = paper_dir / config.get("main", "main.tex")
     variables_path = auto_dir / "variables.tex"
+    expected_argument_audit = generated.get("argument_audit")
+    actual_argument_audit = _compute_argument_audit(tex_path, variables_path)
+    if not isinstance(expected_argument_audit, dict):
+        fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        issues.append(
+            Issue(
+                category="FRESHNESS",
+                severity="FAIL" if mode == "ci" else "WARN",
+                message=(
+                    f"Missing argument_audit in MANIFEST for {paper_id}; "
+                    "rebuild paper assets."
+                ),
+                fix=fix,
+                recheck=recheck,
+                paths=[str(manifest_path), str(tex_path), str(variables_path)],
+            )
+        )
+    if expected_argument_audit != actual_argument_audit:
+        fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
+        recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"
+        issues.append(
+            Issue(
+                category="FRESHNESS",
+                severity="FAIL" if mode == "ci" else "WARN",
+                message=(
+                    f"Argument audit is stale for {paper_id}; "
+                    "run build-paper-assets."
+                ),
+                fix=fix,
+                recheck=recheck,
+                paths=[str(manifest_path), str(tex_path), str(variables_path)],
+            )
+        )
+
     defined = _extract_defined_metric_macros(variables_path)
     used = _extract_used_metric_macros(tex_path)
     supported = used & defined

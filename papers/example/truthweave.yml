@@ -16,3 +16,7 @@ build:
     - -interaction=nonstopmode
 inputs:
   metrics_source: latest
+quality:
+  argument:
+    min_claim_support_ci: 1.0
+    max_orphan_metrics_dev: 1

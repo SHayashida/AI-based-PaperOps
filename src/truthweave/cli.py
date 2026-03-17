@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -68,6 +69,20 @@ def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
     return hashes
 
 
+def _extract_defined_metric_macros(variables_path: Path) -> set[str]:
+    if not variables_path.exists():
+        return set()
+    pattern = re.compile(r"\\newcommand\{\\(Metric[A-Za-z0-9]+)\}\{")
+    return set(pattern.findall(variables_path.read_text()))
+
+
+def _extract_used_metric_macros(tex_path: Path) -> set[str]:
+    if not tex_path.exists():
+        return set()
+    pattern = re.compile(r"\\(Metric[A-Za-z0-9]+)\b")
+    return set(pattern.findall(tex_path.read_text()))
+
+
 def _load_pipeline_config(repo_root: Path) -> dict[str, Any]:
     pipeline_path = repo_root / "conf" / "pipeline.yaml"
     if not pipeline_path.exists():
@@ -123,6 +138,14 @@ def _build_paper_assets(paper_id: str) -> None:
 
     variables_path.write_text("\n".join(lines) + "\n")
 
+    tex_path = paper_dir / config.get("main", "main.tex")
+    defined = _extract_defined_metric_macros(variables_path)
+    used = _extract_used_metric_macros(tex_path)
+    supported = used & defined
+    unsupported = sorted(used - defined)
+    orphan = sorted(defined - used)
+    claim_support = 1.0 if not used else len(supported) / len(used)
+
     manifest = {
         "source": {
             "paper_id": paper_id,
@@ -139,6 +162,14 @@ def _build_paper_assets(paper_id: str) -> None:
             "tables_sha256": _collect_dir_hashes(
                 paper_dir / config["paths"]["tables_dir"]
             ),
+            "argument_audit": {
+                "claim_support": round(claim_support, 4),
+                "claims_count": len(used),
+                "unsupported_claims": len(unsupported),
+                "orphan_metrics": len(orphan),
+                "unsupported_macros": unsupported,
+                "orphan_macros": orphan,
+            },
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
     }
