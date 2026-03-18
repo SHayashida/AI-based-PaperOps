@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from omegaconf import OmegaConf
 
-from truthweave.cli import check_command, create_exp_command
+from truthweave.cli import argument_audit_command, check_command, create_exp_command
 from truthweave.checks import check_structure
 
 
@@ -293,3 +293,47 @@ def test_check_mode_dev_respects_orphan_threshold(
 
     output = capsys.readouterr().out
     assert "[WARN:ARGUMENT_COVERAGE]" not in output
+
+
+def test_argument_audit_command_outputs_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    argument_audit_command("paper1", "json")
+
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert len(payload["papers"]) == 1
+    assert payload["papers"][0]["paper_id"] == "paper1"
+    assert payload["papers"][0]["claim_support"] == 1.0
+
+
+def test_argument_audit_command_requires_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    paper_dir = tmp_path / "papers" / "paper1"
+    (paper_dir / "auto").mkdir(parents=True)
+    (paper_dir / "styles").mkdir()
+    _write_file(
+        paper_dir / "truthweave.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "engine": "latexmk",
+                "main": "main.tex",
+                "paths": {
+                    "auto_dir": "auto",
+                    "figures_dir": "figures",
+                    "tables_dir": "tables",
+                },
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        argument_audit_command("paper1", "json")

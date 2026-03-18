@@ -361,6 +361,56 @@ def check_command(paper_id: str | None, mode: str) -> None:
         raise SystemExit(1)
 
 
+def argument_audit_command(paper_id: str | None, output_format: str) -> None:
+    repo_root = _repo_root()
+
+    if paper_id:
+        papers = [get_paper_by_id(repo_root, paper_id)]
+    else:
+        manifest = write_discovery_manifest(repo_root)
+        data = json.loads(manifest.read_text())
+        papers = data.get("papers", [])
+
+    rows: list[dict[str, object]] = []
+    for paper in papers:
+        pid = paper["paper_id"]
+        paper_dir = repo_root / paper["path"]
+        config = load_paper_config(paper_dir / "truthweave.yml")
+        auto_dir = paper_dir / config["paths"]["auto_dir"]
+        manifest_path = auto_dir / "MANIFEST.json"
+        if not manifest_path.exists():
+            raise SystemExit(
+                f"Missing MANIFEST.json for {pid}. Run: uv run truthweave build-paper-assets --paper {pid}"
+            )
+
+        manifest_data = json.loads(manifest_path.read_text())
+        audit = manifest_data.get("generated", {}).get("argument_audit", {})
+        rows.append(
+            {
+                "paper_id": pid,
+                "claim_support": audit.get("claim_support"),
+                "claims_count": audit.get("claims_count"),
+                "unsupported_claims": audit.get("unsupported_claims"),
+                "orphan_metrics": audit.get("orphan_metrics"),
+            }
+        )
+
+    if output_format == "json":
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "papers": rows,
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    print("paper_id\tclaim_support\tclaims_count\tunsupported_claims\torphan_metrics")
+    for row in rows:
+        print(
+            f"{row['paper_id']}\t{row['claim_support']}\t{row['claims_count']}\t"
+            f"{row['unsupported_claims']}\t{row['orphan_metrics']}"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="truthweave")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -381,6 +431,12 @@ def main() -> None:
     check_parser = subparsers.add_parser("check", help="Run checks")
     check_parser.add_argument("--paper")
     check_parser.add_argument("--mode", choices=["dev", "ci"], default="dev")
+
+    audit_parser = subparsers.add_parser(
+        "audit-argument", help="Report argument audit metrics from paper manifests"
+    )
+    audit_parser.add_argument("--paper")
+    audit_parser.add_argument("--format", choices=["table", "json"], default="table")
 
     structure_parser = subparsers.add_parser(
         "check-structure", help="Check repository structure"
@@ -423,6 +479,8 @@ def main() -> None:
         create_paper_command(args.paper_id, args.from_paper, args.engine)
     elif args.command == "check":
         check_command(args.paper, args.mode)
+    elif args.command == "audit-argument":
+        argument_audit_command(args.paper, args.format)
     elif args.command == "check-structure":
         issues = check_structure_command(args.mode)
         for issue in issues:
