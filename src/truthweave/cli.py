@@ -361,7 +361,44 @@ def check_command(paper_id: str | None, mode: str) -> None:
         raise SystemExit(1)
 
 
-def argument_audit_command(paper_id: str | None, output_format: str) -> None:
+def _argument_policy_thresholds(config: dict[str, Any]) -> tuple[float, int]:
+    quality = config.get("quality", {})
+    argument = quality.get("argument", {}) if isinstance(quality, dict) else {}
+    min_claim_support_ci = argument.get("min_claim_support_ci", 1.0)
+    max_orphan_metrics_dev = argument.get("max_orphan_metrics_dev", 0)
+    if not isinstance(min_claim_support_ci, (int, float)):
+        min_claim_support_ci = 1.0
+    if not isinstance(max_orphan_metrics_dev, int):
+        max_orphan_metrics_dev = 0
+    return float(min_claim_support_ci), max_orphan_metrics_dev
+
+
+def _audit_row_status(row: dict[str, object], mode: str) -> str:
+    claim_support = row.get("claim_support")
+    unsupported_claims = row.get("unsupported_claims")
+    orphan_metrics = row.get("orphan_metrics")
+    min_claim_support_ci = row.get("min_claim_support_ci")
+    max_orphan_metrics_dev = row.get("max_orphan_metrics_dev")
+
+    if not isinstance(claim_support, (int, float)):
+        return "fail"
+    if not isinstance(unsupported_claims, int):
+        return "fail"
+    if not isinstance(orphan_metrics, int):
+        return "fail"
+    if not isinstance(min_claim_support_ci, (int, float)):
+        return "fail"
+    if not isinstance(max_orphan_metrics_dev, int):
+        return "fail"
+
+    if claim_support < float(min_claim_support_ci) or unsupported_claims > 0:
+        return "fail"
+    if mode == "dev" and orphan_metrics > max_orphan_metrics_dev:
+        return "warn"
+    return "pass"
+
+
+def argument_audit_command(paper_id: str | None, output_format: str, mode: str) -> None:
     repo_root = _repo_root()
 
     if paper_id:
@@ -376,6 +413,7 @@ def argument_audit_command(paper_id: str | None, output_format: str) -> None:
         pid = paper["paper_id"]
         paper_dir = repo_root / paper["path"]
         config = load_paper_config(paper_dir / "truthweave.yml")
+        min_claim_support_ci, max_orphan_metrics_dev = _argument_policy_thresholds(config)
         auto_dir = paper_dir / config["paths"]["auto_dir"]
         manifest_path = auto_dir / "MANIFEST.json"
         if not manifest_path.exists():
@@ -385,30 +423,42 @@ def argument_audit_command(paper_id: str | None, output_format: str) -> None:
 
         manifest_data = json.loads(manifest_path.read_text())
         audit = manifest_data.get("generated", {}).get("argument_audit", {})
+        row: dict[str, object] = {
+            "paper_id": pid,
+            "claim_support": audit.get("claim_support"),
+            "claims_count": audit.get("claims_count"),
+            "unsupported_claims": audit.get("unsupported_claims"),
+            "orphan_metrics": audit.get("orphan_metrics"),
+            "min_claim_support_ci": min_claim_support_ci,
+            "max_orphan_metrics_dev": max_orphan_metrics_dev,
+        }
+        row["status"] = _audit_row_status(row, mode)
         rows.append(
-            {
-                "paper_id": pid,
-                "claim_support": audit.get("claim_support"),
-                "claims_count": audit.get("claims_count"),
-                "unsupported_claims": audit.get("unsupported_claims"),
-                "orphan_metrics": audit.get("orphan_metrics"),
-            }
+            row
         )
 
     if output_format == "json":
         payload = {
+            "mode": mode,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "papers": rows,
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
-        return
-
-    print("paper_id\tclaim_support\tclaims_count\tunsupported_claims\torphan_metrics")
-    for row in rows:
+    else:
         print(
-            f"{row['paper_id']}\t{row['claim_support']}\t{row['claims_count']}\t"
-            f"{row['unsupported_claims']}\t{row['orphan_metrics']}"
+            "paper_id\tstatus\tclaim_support\tclaims_count\tunsupported_claims\t"
+            "orphan_metrics\tmin_claim_support_ci\tmax_orphan_metrics_dev"
         )
+        for row in rows:
+            print(
+                f"{row['paper_id']}\t{row['status']}\t{row['claim_support']}\t{row['claims_count']}\t"
+                f"{row['unsupported_claims']}\t{row['orphan_metrics']}\t"
+                f"{row['min_claim_support_ci']}\t{row['max_orphan_metrics_dev']}"
+            )
+
+    has_fail = any(row.get("status") == "fail" for row in rows)
+    if mode == "ci" and has_fail:
+        raise SystemExit(1)
 
 
 def main() -> None:
@@ -437,6 +487,7 @@ def main() -> None:
     )
     audit_parser.add_argument("--paper")
     audit_parser.add_argument("--format", choices=["table", "json"], default="table")
+    audit_parser.add_argument("--mode", choices=["dev", "ci"], default="dev")
 
     structure_parser = subparsers.add_parser(
         "check-structure", help="Check repository structure"
@@ -480,7 +531,7 @@ def main() -> None:
     elif args.command == "check":
         check_command(args.paper, args.mode)
     elif args.command == "audit-argument":
-        argument_audit_command(args.paper, args.format)
+        argument_audit_command(args.paper, args.format, args.mode)
     elif args.command == "check-structure":
         issues = check_structure_command(args.mode)
         for issue in issues:

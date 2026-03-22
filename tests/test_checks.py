@@ -302,13 +302,15 @@ def test_argument_audit_command_outputs_json(
     _setup_paper(tmp_path, "paper1", stale_manifest=False)
     monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
 
-    argument_audit_command("paper1", "json")
+    argument_audit_command("paper1", "json", "dev")
 
     output = capsys.readouterr().out
     payload = json.loads(output)
+    assert payload["mode"] == "dev"
     assert len(payload["papers"]) == 1
     assert payload["papers"][0]["paper_id"] == "paper1"
     assert payload["papers"][0]["claim_support"] == 1.0
+    assert payload["papers"][0]["status"] == "pass"
 
 
 def test_argument_audit_command_requires_manifest(
@@ -336,4 +338,36 @@ def test_argument_audit_command_requires_manifest(
     monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
 
     with pytest.raises(SystemExit):
-        argument_audit_command("paper1", "json")
+        argument_audit_command("paper1", "json", "dev")
+
+
+def test_argument_audit_command_ci_fails_on_threshold_breach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "truthweave.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "engine": "latexmk",
+                "main": "main.tex",
+                "paths": {
+                    "auto_dir": "auto",
+                    "figures_dir": "figures",
+                    "tables_dir": "tables",
+                },
+                "quality": {"argument": {"min_claim_support_ci": 1.0}},
+            }
+        ),
+    )
+    manifest_path = tmp_path / "papers" / "paper1" / "auto" / "MANIFEST.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["generated"]["argument_audit"]["claim_support"] = 0.5
+    manifest["generated"]["argument_audit"]["unsupported_claims"] = 1
+    manifest_path.write_text(json.dumps(manifest))
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        argument_audit_command("paper1", "json", "ci")
