@@ -1,15 +1,64 @@
-# TruthWeave Template v1
+# TruthWeave
 
 [![CI](https://github.com/SHayashida/TruthWeave/actions/workflows/ci.yml/badge.svg)](https://github.com/SHayashida/TruthWeave/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Reproducible research workflow template for academic papers. Ensures experiments are traceable, paper metrics are automatically synced, and manual number updates are eliminated.
+**Auditable research production system for papers that need traceable claims, admissible sources, and executable verification.**
+
+TruthWeave turns a paper repository into an audit spine: research intent in `brief.yml`, source admissibility in `data_sources.yml`, claim bindings in `evidence.yml`, reviewer-facing packets, and deterministic verification outputs. It is built for teams that want a paper workflow they can inspect, rerun, and hand off without losing the evidence trail.
 
 [日本語版 README はこちら](README.ja.md)
 
+## What TruthWeave Is
+
+TruthWeave is **not** a one-prompt autonomous paper generator. It is a system for producing research artifacts under explicit contracts: what was claimed, which sources were admissible, how evidence was bound, what reviewers should inspect, and how major claims can be replayed.
+
+## Why TruthWeave Exists
+
+Many AI paper workflows optimize for autonomy. TruthWeave optimizes for **admissibility and verification, not maximum autonomy**. It is designed to keep traceable claims, source provenance, deterministic checks, reviewer-facing packets, executable verification paths, and domain-specific policy enforcement inside the repository rather than in undocumented process.
+
+## Canonical Workflow
+
+```text
+brief -> refs -> provenance -> claims -> review -> packet -> verification -> build
+```
+
+This workflow keeps the paper, its evidence, and its rerun path aligned instead of relying on prose-only handoffs.
+
+## Start Here
+
+These are the fastest ways to understand the product from the repository itself:
+
+- **Benchmark / failure corpus**: [`benchmarks/cases/`](benchmarks/cases/) and [`artifacts/benchmarks/benchmark_report.md`](artifacts/benchmarks/benchmark_report.md) show positive cases, negative cases, and blocked shortcuts as executable contract tests.
+- **Finance exemplar**: [`papers/finance_exemplar/`](papers/finance_exemplar/) plus its [`packet.md`](artifacts/packets/finance_exemplar/packet.md) and [`verification_report.md`](artifacts/verification/finance_exemplar/verification_report.md) show a finance ML workflow with explicit temporal protocol and admissibility rules.
+- **Formal methods exemplar**: [`papers/formal_methods_exemplar/`](papers/formal_methods_exemplar/) plus its [`packet.md`](artifacts/packets/formal_methods_exemplar/packet.md) and [`verification_report.md`](artifacts/verification/formal_methods_exemplar/verification_report.md) show proof-bundle declarations and exact/file-presence verification.
+- **Resume / development guide**: [`docs/TRUTHWEAVE_RESUME_GUIDE.md`](docs/TRUTHWEAVE_RESUME_GUIDE.md) is the canonical restart and handoff guide for contributors and coding agents.
+
+If you want to run one thing first, start with `uv run truthweave benchmark-contracts --format md` or `make exemplars`.
+
+## Built-in Profiles
+
+TruthWeave ships with `finance_ml`, `formal_methods`, and `simulation_abm`. These profiles enforce domain-specific admissibility rules, forbidden substitutes, required declarations, evaluation requirements, and verification expectations so the same workflow can carry different research contracts honestly.
+
+## What Proves This Works
+
+This repository already includes concrete proof assets rather than a proposal-only skeleton:
+
+- A deterministic benchmark corpus with positive and negative contract cases under [`benchmarks/cases/`](benchmarks/cases/).
+- Reviewer packet export under [`artifacts/packets/`](artifacts/packets/) for inspection and handoff.
+- A verification harness under [`artifacts/verification/`](artifacts/verification/) with replay targets and reports.
+- Canonical exemplar papers under [`papers/finance_exemplar/`](papers/finance_exemplar/) and [`papers/formal_methods_exemplar/`](papers/formal_methods_exemplar/).
+- Profile reports under [`artifacts/profiles/`](artifacts/profiles/) showing domain-policy enforcement in practice.
+
+## Who This Is For
+
+TruthWeave is for researchers, labs, and engineering-heavy paper workflows that care about reproducibility, auditable claims, domain-valid evidence, and handoff-ready research contracts. It is not primarily for users who want one-prompt autonomous paper generation without provenance, policy checks, or verification.
+
 ## Quickstart
+
+The full quickstart below walks the generic paper path end to end using `example`; the faster product-level entry points are the benchmark corpus and the two exemplars.
 
 ```bash
 uv sync
@@ -45,14 +94,14 @@ Experiment (conf/exp + src/truthweave/experiments)
 
 ### Included Demo Papers
 
-This template intentionally includes four papers with different roles:
+This repository intentionally includes four papers with different roles:
 
 - `example`: the minimal single-paper baseline used by Quickstart commands.
 - `demo_paper`: a second lightweight paper used to demonstrate multi-paper operations (`discover`, `*-all` Make targets, and cross-paper checks).
 - `finance_exemplar`: a richer finance ML profile demo with explicit temporal protocol, baselines, admissibility declarations, packet export, and verification targets.
 - `formal_methods_exemplar`: a richer formal methods profile demo with proof bundle declarations, exact-match/file-presence verification, packet export, and profile enforcement.
 
-Keeping all four in the template lets you test:
+Keeping all four in the repository lets you test:
 
 1. single-paper onboarding (`--paper example`)
 2. multi-paper repository workflows (`make assets-all`, `make check-all`)
@@ -147,19 +196,19 @@ Use these two papers as canonical onboarding references:
 
 - `finance_exemplar`
   This demonstrates a finance ML contract with an explicit temporal split, leakage controls, declared baselines, provenance-aware synthetic-market data, reviewer packet export, and replayable verification. Inspect:
-  [`papers/finance_exemplar/brief.yml`](/Users/linda/Documents/AI-based-PaperOps/papers/finance_exemplar/brief.yml),
-  [`artifacts/profiles/finance_exemplar/profile_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/profiles/finance_exemplar/profile_report.md),
-  [`artifacts/packets/finance_exemplar/packet.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/packets/finance_exemplar/packet.md),
-  [`artifacts/verification/finance_exemplar/verification_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/verification/finance_exemplar/verification_report.md).
+  [`papers/finance_exemplar/brief.yml`](papers/finance_exemplar/brief.yml),
+  [`artifacts/profiles/finance_exemplar/profile_report.md`](artifacts/profiles/finance_exemplar/profile_report.md),
+  [`artifacts/packets/finance_exemplar/packet.md`](artifacts/packets/finance_exemplar/packet.md),
+  [`artifacts/verification/finance_exemplar/verification_report.md`](artifacts/verification/finance_exemplar/verification_report.md).
   The important product point is that synthetic data is admissible only because the brief explicitly sets `data_regime: synthetic_market`; the benchmark corpus shows the blocked real-market substitute case.
 
 - `formal_methods_exemplar`
   This demonstrates a formal methods contract with local checker/witness artifacts, exact-match witness verification, file-presence checks for proof objects, and packet/report exports tied to a declared proof bundle. Inspect:
-  [`papers/formal_methods_exemplar/brief.yml`](/Users/linda/Documents/AI-based-PaperOps/papers/formal_methods_exemplar/brief.yml),
-  [`papers/formal_methods_exemplar/proofs/checker.txt`](/Users/linda/Documents/AI-based-PaperOps/papers/formal_methods_exemplar/proofs/checker.txt),
-  [`artifacts/profiles/formal_methods_exemplar/profile_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/profiles/formal_methods_exemplar/profile_report.md),
-  [`artifacts/packets/formal_methods_exemplar/packet.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/packets/formal_methods_exemplar/packet.md),
-  [`artifacts/verification/formal_methods_exemplar/verification_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/verification/formal_methods_exemplar/verification_report.md).
+  [`papers/formal_methods_exemplar/brief.yml`](papers/formal_methods_exemplar/brief.yml),
+  [`papers/formal_methods_exemplar/proofs/checker.txt`](papers/formal_methods_exemplar/proofs/checker.txt),
+  [`artifacts/profiles/formal_methods_exemplar/profile_report.md`](artifacts/profiles/formal_methods_exemplar/profile_report.md),
+  [`artifacts/packets/formal_methods_exemplar/packet.md`](artifacts/packets/formal_methods_exemplar/packet.md),
+  [`artifacts/verification/formal_methods_exemplar/verification_report.md`](artifacts/verification/formal_methods_exemplar/verification_report.md).
 
 Build both canonical demos with:
 
