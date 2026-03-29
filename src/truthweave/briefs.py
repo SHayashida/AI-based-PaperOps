@@ -36,6 +36,7 @@ def default_brief(paper_id: str) -> dict[str, Any]:
             {
                 "claim_id": "main_claim",
                 "required": True,
+                "verification_required": False,
                 "experiment": "example",
                 "description": "Evidence that supports the central claim.",
                 "expected_metrics": ["MetricMean"],
@@ -123,6 +124,13 @@ def validate_brief_data(data: dict[str, Any]) -> list[str]:
             required = item.get("required")
             if required is not None and not isinstance(required, bool):
                 errors.append(f"planned_evidence[{idx}].required must be a boolean")
+            verification_required = item.get("verification_required")
+            if verification_required is not None and not isinstance(
+                verification_required, bool
+            ):
+                errors.append(
+                    f"planned_evidence[{idx}].verification_required must be a boolean"
+                )
             source_ids = item.get("source_ids")
             if source_ids is not None and (
                 not isinstance(source_ids, list)
@@ -176,6 +184,7 @@ def claim_specs_from_brief(brief: dict[str, Any]) -> dict[str, dict[str, Any]]:
         specs[claim_id] = {
             "claim_id": claim_id,
             "required": bool(item.get("required", True)),
+            "verification_required": bool(item.get("verification_required", False)),
             "experiment": item.get("experiment"),
             "description": item.get("description"),
             "expected_metrics": item.get("expected_metrics", []),

@@ -29,5 +29,7 @@ jobs:
         run: make review-all
       - name: Build reviewer packet
         run: make packet-all
+      - name: Verify claims
+        run: make verify-all
       - name: Check
         run: uv run truthweave check --mode ci

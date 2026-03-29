@@ -21,6 +21,8 @@ from truthweave.cli import (
     validate_brief_command,
     validate_evidence_command,
     validate_provenance_command,
+    verification_report_command,
+    verify_paper_command,
 )
 from truthweave.checks import check_structure
 from truthweave.evidence import build_claim_ledger
@@ -28,6 +30,7 @@ from truthweave.packet import build_reviewer_packet
 from truthweave.provenance import build_provenance_ledger
 from truthweave.references import sync_references
 from truthweave.reviews import build_thread_review
+from truthweave.verify import build_verification_report
 
 
 def _write_file(path: Path, content: str) -> None:
@@ -81,6 +84,7 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
                     {
                         "claim_id": "main_claim",
                         "required": True,
+                        "verification_required": True,
                         "experiment": "example",
                         "description": "MetricMean supports the main claim.",
                         "expected_metrics": ["MetricMean"],
@@ -108,6 +112,15 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
                                 "artifact_path": "auto/variables.tex",
                                 "variable": "MetricMean",
                                 "source_ids": ["example_source"],
+                                "verification": {
+                                    "comparison_mode": "exact_match",
+                                    "expected_value": "1",
+                                    "rerun_scope": "run_and_assets",
+                                    "rerun_commands": [
+                                        "make run",
+                                        f"uv run truthweave build-paper-assets --paper {paper_id}",
+                                    ],
+                                },
                             },
                             {
                                 "kind": "manifest",
@@ -115,6 +128,13 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
                                 "manifest_pointer": "source.metrics_json_path",
                                 "run_id": "run1",
                                 "source_ids": ["example_source"],
+                                "verification": {
+                                    "comparison_mode": "manifest_entry_present",
+                                    "rerun_scope": "assets_only",
+                                    "rerun_commands": [
+                                        f"uv run truthweave build-paper-assets --paper {paper_id}"
+                                    ],
+                                },
                             },
                         ],
                     }
@@ -240,6 +260,7 @@ def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
     build_provenance_ledger(tmp_path, paper_dir, paper_id, write_output=True)
     build_thread_review(tmp_path, paper_dir, paper_id, "draft_reviewed")
     build_reviewer_packet(tmp_path, paper_dir, paper_id, write_output=True)
+    build_verification_report(tmp_path, paper_dir, paper_id, write_output=True)
 
 
 def test_check_mode_dev_does_not_fail_on_structure(
@@ -730,6 +751,41 @@ def test_reviewer_packet_command_writes_packet_outputs(
     )
 
 
+def test_verification_report_command_writes_outputs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    verification_report_command("paper1", "json")
+
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert payload["summary"]["targets_total"] == 2
+    assert payload["summary"]["verified_exact"] == 2
+    verify_dir = tmp_path / "artifacts" / "verification" / "paper1"
+    assert (verify_dir / "verification_report.json").exists()
+    assert (verify_dir / "verification_report.md").exists()
+    assert (verify_dir / "verification_targets.csv").exists()
+    assert (verify_dir / "replay_profile.md").exists()
+
+
+def test_verify_paper_command_fails_for_required_target_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "auto" / "variables.tex",
+        "\\newcommand{\\MetricMean}{2}\n",
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        verify_paper_command("paper1", "md")
+
+
 def test_check_mode_ci_fails_on_stale_thread_review(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -758,6 +814,21 @@ def test_check_mode_ci_fails_on_stale_reviewer_packet(
 
     output = capsys.readouterr().out
     assert "[FAIL:PACKET_STALENESS]" in output
+
+
+def test_check_mode_ci_fails_on_stale_verification_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(tmp_path / "papers" / "paper1" / "auto" / "variables.tex", "\\newcommand{\\MetricMean}{2}\n")
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "[FAIL:VERIFICATION_STALENESS]" in output
 
 
 def test_check_mode_ci_fails_on_reference_lock_mismatch(
@@ -809,6 +880,42 @@ def test_check_mode_ci_fails_on_missing_reviewer_packet(
 
     output = capsys.readouterr().out
     assert "[FAIL:PACKET_CONSISTENCY]" in output
+
+
+def test_check_mode_ci_fails_on_missing_verification_metadata(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_file(
+        tmp_path / "papers" / "paper1" / "evidence.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "claims": [
+                    {
+                        "claim_id": "main_claim",
+                        "status": "supported",
+                        "evidence": [
+                            {
+                                "kind": "variable",
+                                "artifact_path": "auto/variables.tex",
+                                "variable": "MetricMean",
+                                "source_ids": ["example_source"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "[FAIL:VERIFICATION_COVERAGE]" in output
 
 
 def test_check_mode_ci_fails_on_orphan_evidence(

@@ -9,10 +9,25 @@ claims:
         variable: MetricMean
         source_ids:
           - example_simulated_data
+        verification:
+          comparison_mode: numeric_tolerance
+          expected_value: 0.5101
+          tolerance: 0.0001
+          rerun_scope: run_and_assets
+          rerun_commands:
+            - make run
+            - uv run truthweave build-paper-assets --paper demo_paper
+          note: Reproduce the generated metric macro within a tight tolerance.
         note: Metric used directly in the sample paper text.
       - kind: manifest
         artifact_path: auto/MANIFEST.json
         manifest_pointer: source.metrics_json_path
         source_ids:
           - example_simulated_data
+        verification:
+          comparison_mode: manifest_entry_present
+          rerun_scope: assets_only
+          rerun_commands:
+            - uv run truthweave build-paper-assets --paper demo_paper
+          note: Confirm the manifest still exposes the metrics artifact pointer.
         note: Provenance pointer to the metrics artifact that generated the paper assets.

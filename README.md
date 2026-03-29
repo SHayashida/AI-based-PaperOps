@@ -24,6 +24,7 @@ uv run truthweave provenance-report --paper example --format md
 uv run truthweave claim-report --paper example --format md
 uv run truthweave review-thread --paper example --phase draft_reviewed --format md
 uv run truthweave reviewer-packet --paper example --format md
+uv run truthweave verify-paper --paper example --format md
 uv run truthweave check --paper example
 ```
 
@@ -146,6 +147,23 @@ This writes:
 
 The packet is intended for reviewers, coauthors, and future maintainers who need a compact audit bundle without reading the whole repo first.
 
+### Verification Harness
+
+Export and run a deterministic verification profile for major claims:
+
+```bash
+uv run truthweave verification-report --paper <paper_id> --format md
+uv run truthweave verify-paper --paper <paper_id> --format md
+```
+
+This writes:
+- `artifacts/verification/<paper_id>/verification_report.json`
+- `artifacts/verification/<paper_id>/verification_report.md`
+- `artifacts/verification/<paper_id>/verification_targets.csv`
+- `artifacts/verification/<paper_id>/replay_profile.md`
+
+The reviewer packet is for inspection. The verification harness is for executable replay and comparison against declared evidence targets.
+
 ### Building the PDF
 
 ```bash
@@ -184,8 +202,10 @@ uv run truthweave check --paper <paper_id> --mode ci
 - `truthweave provenance-report --paper <paper_id>` writes `artifacts/provenance/<paper_id>/provenance_ledger.json`
 - `truthweave claim-report --paper <paper_id>` writes `artifacts/claims/<paper_id>/claim_ledger.json`
 - `truthweave reviewer-packet --paper <paper_id>` writes `artifacts/packets/<paper_id>/packet.json` plus human-readable exports
+- `truthweave verification-report --paper <paper_id>` writes `artifacts/verification/<paper_id>/verification_report.json`
+- `truthweave verify-paper --paper <paper_id>` runs deterministic claim verification and exits nonzero when required verification targets fail
 - `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine in `truthweave.yml`
-- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make paper PAPER=<paper_id>`
+- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`
 
 ## Workflow Summary: Canonical Paper Flow
 
@@ -200,8 +220,9 @@ uv run truthweave check --paper <paper_id> --mode ci
 9. Build the claim ledger with `uv run truthweave claim-report --paper mypaper --format md`
 10. Run `uv run truthweave review-thread --paper mypaper --phase draft_reviewed --format md`
 11. Generate the reviewer packet with `uv run truthweave reviewer-packet --paper mypaper --format md`
-12. Run `uv run truthweave check --paper mypaper --mode ci`
-13. Build the PDF with `uv run truthweave build-paper --paper mypaper`
+12. Verify major claims with `uv run truthweave verify-paper --paper mypaper --format md`
+13. Run `uv run truthweave check --paper mypaper --mode ci`
+14. Build the PDF with `uv run truthweave build-paper --paper mypaper`
 
 ## Workflow Summary: Add Experiment
 
@@ -286,6 +307,7 @@ uv run truthweave provenance-report --paper demo_paper --format md
 uv run truthweave claim-report --paper demo_paper --format md
 uv run truthweave review-thread --paper demo_paper --phase draft_reviewed --format md
 uv run truthweave reviewer-packet --paper demo_paper --format md
+uv run truthweave verify-paper --paper demo_paper --format md
 uv run truthweave build-paper --paper demo_paper
 uv run truthweave check --paper demo_paper
 make assets-all
@@ -294,6 +316,7 @@ make provenance-all
 make claims-all
 make review-all
 make packet-all
+make verify-all
 make paper-all
 make check-all
 ```

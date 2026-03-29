@@ -14,6 +14,12 @@ from truthweave.utils import ensure_dir, sha256_file, write_json
 
 EVIDENCE_STATUSES = {"supported", "qualified", "unsupported", "stale", "missing"}
 EVIDENCE_KINDS = {"variable", "artifact", "figure", "table", "manifest"}
+VERIFICATION_COMPARISON_MODES = {
+    "exact_match",
+    "numeric_tolerance",
+    "file_exists",
+    "manifest_entry_present",
+}
 
 
 def evidence_path(paper_dir: Path) -> Path:
@@ -217,6 +223,54 @@ def validate_evidence_data(
                 errors.append(
                     f"claims[{idx}].evidence[{item_idx}].note must be a string"
                 )
+            verification = item.get("verification")
+            if verification is not None:
+                if not isinstance(verification, dict):
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification must be a mapping"
+                    )
+                    continue
+                comparison_mode = verification.get("comparison_mode")
+                if comparison_mode not in VERIFICATION_COMPARISON_MODES:
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.comparison_mode must be one of: "
+                        + ", ".join(sorted(VERIFICATION_COMPARISON_MODES))
+                    )
+                expected_value = verification.get("expected_value")
+                if comparison_mode in {"exact_match", "numeric_tolerance"} and expected_value is None:
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.expected_value is required for {comparison_mode}"
+                    )
+                tolerance = verification.get("tolerance")
+                if tolerance is not None and not isinstance(tolerance, (int, float)):
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.tolerance must be numeric"
+                    )
+                rerun_scope = verification.get("rerun_scope")
+                if rerun_scope is not None and (
+                    not isinstance(rerun_scope, str) or not rerun_scope
+                ):
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.rerun_scope must be a non-empty string"
+                    )
+                rerun_commands = verification.get("rerun_commands")
+                if rerun_commands is not None and (
+                    not isinstance(rerun_commands, list)
+                    or any(
+                        not isinstance(command, str) or not command
+                        for command in rerun_commands
+                    )
+                ):
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.rerun_commands must be a list of strings"
+                    )
+                verification_note = verification.get("note")
+                if verification_note is not None and not isinstance(
+                    verification_note, str
+                ):
+                    errors.append(
+                        f"claims[{idx}].evidence[{item_idx}].verification.note must be a string"
+                    )
 
     return errors
 

@@ -9,6 +9,7 @@ from truthweave.checks import (
     check_review,
     check_run_integrity,
     check_structure,
+    check_verification,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "check_review",
     "check_run_integrity",
     "check_structure",
+    "check_verification",
 ]

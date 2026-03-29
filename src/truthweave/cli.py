@@ -36,6 +36,7 @@ from truthweave.checks import (
     check_review,
     check_run_integrity,
     check_structure,
+    check_verification,
 )
 from truthweave.checks.models import Issue
 from truthweave.evidence import (
@@ -69,6 +70,7 @@ from truthweave.registry import get_experiment_class
 from truthweave.reviews import build_thread_review, render_review_markdown
 from truthweave.runner import ExperimentRunner
 from truthweave.utils import ensure_dir, find_latest_run, sha256_file, write_json
+from truthweave.verify import build_verification_report, render_verification_report
 
 
 def _repo_root() -> Path:
@@ -515,6 +517,7 @@ def check_command(paper_id: str | None, mode: str) -> None:
         issues.extend(check_claim_evidence.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_packet.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_provenance.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_verification.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(
             check_paper_freshness.check(repo_root, paper_dir, paper_id, mode)
         )
@@ -532,6 +535,7 @@ def check_command(paper_id: str | None, mode: str) -> None:
             issues.extend(check_claim_evidence.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_packet.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_provenance.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_verification.check(repo_root, paper_dir, pid, mode))
             issues.extend(
                 check_paper_freshness.check(repo_root, paper_dir, pid, mode)
             )
@@ -657,6 +661,28 @@ def reviewer_packet_command(paper_id: str, output_format: str) -> None:
     paper_dir = repo_root / paper["path"]
     packet = build_reviewer_packet(repo_root, paper_dir, paper_id, write_output=True)
     print(render_packet(packet, output_format), end="")
+
+
+def verification_report_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    report = build_verification_report(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_verification_report(report, output_format), end="")
+
+
+def verify_paper_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    report = build_verification_report(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_verification_report(report, output_format), end="")
+    failed_required = report.get("validation", {}).get("failed_required_targets", [])
+    missing_claims = report.get("validation", {}).get("missing_verification_claims", [])
+    if (isinstance(failed_required, list) and failed_required) or (
+        isinstance(missing_claims, list) and missing_claims
+    ):
+        raise SystemExit(1)
 
 
 def approve_phase_command(paper_id: str, phase: str) -> None:
@@ -896,6 +922,22 @@ def main() -> None:
         "--format", choices=["table", "json", "md"], default="table"
     )
 
+    verification_report_parser = subparsers.add_parser(
+        "verification-report", help="Build a machine-readable verification report"
+    )
+    verification_report_parser.add_argument("--paper", required=True)
+    verification_report_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
+    verify_paper_parser = subparsers.add_parser(
+        "verify-paper", help="Run deterministic claim verification for a paper"
+    )
+    verify_paper_parser.add_argument("--paper", required=True)
+    verify_paper_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
     approve_parser = subparsers.add_parser(
         "approve-phase", help="Approve a paper phase transition"
     )
@@ -978,6 +1020,10 @@ def main() -> None:
         provenance_report_command(args.paper, args.format)
     elif args.command == "reviewer-packet":
         reviewer_packet_command(args.paper, args.format)
+    elif args.command == "verification-report":
+        verification_report_command(args.paper, args.format)
+    elif args.command == "verify-paper":
+        verify_paper_command(args.paper, args.format)
     elif args.command == "approve-phase":
         approve_phase_command(args.paper, args.phase)
     elif args.command == "review-thread":

@@ -11,6 +11,7 @@ expected_source_ids:
 planned_evidence:
   - claim_id: demo_claim
     required: true
+    verification_required: true
     experiment: example
     description: The demo paper uses the example experiment metric as direct evidence.
     expected_metrics:

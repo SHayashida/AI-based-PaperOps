@@ -11,6 +11,7 @@ expected_source_ids:
 planned_evidence:
   - claim_id: main_claim
     required: true
+    verification_required: true
     experiment: example
     description: The example experiment emits MetricMean and the paper cites it directly.
     expected_metrics:

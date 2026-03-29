@@ -21,6 +21,7 @@ from truthweave.references import (
 )
 from truthweave.reviews import review_json_path
 from truthweave.utils import ensure_dir, sha256_file, write_json
+from truthweave.verify import build_verification_report
 
 
 def packet_dir(repo_root: Path, paper_id: str) -> Path:
@@ -267,6 +268,9 @@ def build_reviewer_packet(
     review, review_blockers, review_warnings = _review_status(
         repo_root, paper_dir, paper_id, str(brief.get("phase_status"))
     )
+    verification = build_verification_report(
+        repo_root, paper_dir, paper_id, write_output=False
+    )
 
     source_entries = provenance_ledger.get("entries", [])
     if not isinstance(source_entries, list):
@@ -460,6 +464,16 @@ def build_reviewer_packet(
         "reference_entries": len(references),
         "overall_blockers": len(blockers),
         "overall_warnings": len(warnings),
+        "verifiable_required_claims": verification.get("summary", {}).get(
+            "verifiable_required_claims", 0
+        ),
+        "verified_required_claims": verification.get("summary", {}).get(
+            "verified_required_claims", 0
+        ),
+        "verification_blocked": verification.get("summary", {}).get("blocked", 0),
+        "missing_verification_metadata": verification.get("summary", {}).get(
+            "missing_verification_metadata", 0
+        ),
     }
 
     packet = {
@@ -480,6 +494,15 @@ def build_reviewer_packet(
         "sources": sources,
         "references": references,
         "review": review,
+        "verification": {
+            "summary": verification.get("summary", {}),
+            "failed_required_targets": verification.get("validation", {}).get(
+                "failed_required_targets", []
+            ),
+            "missing_verification_claims": verification.get("validation", {}).get(
+                "missing_verification_claims", []
+            ),
+        },
         "reproducibility": reproducibility,
         "risks": {
             "qualified_claims": qualified_claims,
@@ -488,6 +511,9 @@ def build_reviewer_packet(
             "stale_sources": provenance_validation.get("stale_sources", []),
             "unresolved_claims": unresolved_claims,
             "unresolved_sources": provenance_validation.get("unresolved_sources", []),
+            "failed_required_verification_targets": verification.get("validation", {}).get(
+                "failed_required_targets", []
+            ),
             "restricted_reproducibility_notes": restricted_notes,
         },
         "reviewed_inputs": reviewed_inputs,
@@ -654,6 +680,20 @@ def render_packet(packet: dict[str, Any], output_format: str) -> str:
         lines.extend(["", "## Reproducibility"])
         for command in packet.get("reproducibility", {}).get("local_rerun_commands", []):
             lines.append(f"- `{command}`")
+        lines.extend(["", "## Verification"])
+        verification = packet.get("verification", {})
+        if isinstance(verification, dict):
+            summary = verification.get("summary", {})
+            if isinstance(summary, dict):
+                lines.append(
+                    f"- verifiable_required_claims: {summary.get('verifiable_required_claims', 0)}"
+                )
+                lines.append(
+                    f"- verified_required_claims: {summary.get('verified_required_claims', 0)}"
+                )
+                lines.append(
+                    f"- missing_verification_metadata: {summary.get('missing_verification_metadata', 0)}"
+                )
         lines.extend(["", "## Risks"])
         for section, values in packet.get("risks", {}).items():
             if isinstance(values, list) and values:

@@ -1,4 +1,4 @@
-.PHONY: run discover assets assets-all refs refs-all provenance provenance-all claims claims-all packet packet-all review review-all paper paper-all check check-all analysis analysis-all
+.PHONY: run discover assets assets-all refs refs-all provenance provenance-all claims claims-all packet packet-all verify verify-all review review-all paper paper-all check check-all analysis analysis-all
 
 run:
 	uv run snakemake -j 1 run_example
@@ -54,6 +54,16 @@ packet-all: discover
 	@for paper in $$(uv run python -c 'import json;print(" ".join([p["paper_id"] for p in json.load(open("artifacts/manifests/papers_index.json"))["papers"]]))'); do \
 		echo "Building reviewer packet for $$paper"; \
 		uv run truthweave reviewer-packet --paper $$paper --format md; \
+	done
+
+verify: discover
+	@if [ -z "$(PAPER)" ]; then echo "Set PAPER=<paper_id>"; exit 1; fi
+	uv run truthweave verify-paper --paper $(PAPER) --format md
+
+verify-all: discover
+	@for paper in $$(uv run python -c 'import json;print(" ".join([p["paper_id"] for p in json.load(open("artifacts/manifests/papers_index.json"))["papers"]]))'); do \
+		echo "Verifying $$paper"; \
+		uv run truthweave verify-paper --paper $$paper --format md; \
 	done
 
 review: discover
