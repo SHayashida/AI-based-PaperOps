@@ -9,6 +9,20 @@
 
 TruthWeave turns a paper repository into an audit spine: research intent in `brief.yml`, source admissibility in `data_sources.yml`, claim bindings in `evidence.yml`, reviewer-facing packets, and deterministic verification outputs. It is built for teams that want a paper workflow they can inspect, rerun, and hand off without losing the evidence trail.
 
+[`Watch showcase clip`](docs/assets/truthweave-showcase.mp4) · [`Start here`](#start-here) · [`Finance exemplar`](papers/finance_exemplar/) · [`Formal methods exemplar`](papers/formal_methods_exemplar/) · [`Resume guide`](docs/TRUTHWEAVE_RESUME_GUIDE.md)
+
+<p align="center">
+  <a href="docs/assets/truthweave-showcase.mp4">
+    <img src="docs/assets/truthweave-showcase.png" alt="TruthWeave showcase concept preview" width="960" />
+  </a>
+</p>
+<p align="center">
+  <sub>Showcase concept preview. Click the image to open the short clip.</sub>
+</p>
+<p align="center">
+  <sub>Audit spine • provenance gate • reviewer packet • verification harness • domain profiles</sub>
+</p>
+
 [日本語版 README はこちら](README.ja.md)
 
 ## What TruthWeave Is
