@@ -40,6 +40,18 @@ Experiment (conf/exp + src/truthweave/experiments)
   -> PDF
 ```
 
+### Why Two Sample Papers Exist
+
+This template intentionally includes two sample papers with different roles:
+
+- `example`: the minimal single-paper baseline used by Quickstart commands.
+- `demo_paper`: a second paper used to demonstrate multi-paper operations (`discover`, `*-all` Make targets, and cross-paper checks).
+
+Keeping both in the template lets you test both modes from a clean clone:
+
+1. single-paper onboarding (`--paper example`)
+2. multi-paper repository workflows (`make assets-all`, `make paper-all`, `make check-all`)
+
 ## Core Workflows
 
 ### Adding a New Paper

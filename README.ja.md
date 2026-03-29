@@ -31,6 +31,18 @@ Experiment (conf/exp + src/truthweave/experiments)
   -> PDF
 ```
 
+### サンプルpaperが2つある理由
+
+このテンプレートは、役割の異なる2つのサンプルpaperを意図的に同梱しています。
+
+- `example`: クイックスタートで使う最小の単一paperサンプル
+- `demo_paper`: 複数paper運用（`discover`、Makefileの `*-all` ターゲット、paper横断チェック）を確認するための2本目
+
+2つを同梱することで、クローン直後に次の両方を検証できます。
+
+1. 単一paperの導入フロー（`--paper example`）
+2. 複数paperの運用フロー（`make assets-all`、`make paper-all`、`make check-all`）
+
 ## 主要ワークフロー
 
 ### 新しい論文の追加
