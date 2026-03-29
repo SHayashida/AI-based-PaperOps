@@ -1,0 +1,28 @@
+paper_id: formal_methods_negative_missing_verification
+phase_status: release_ready
+research_profile: formal_methods
+central_claim: Formal-methods claims require executable verification metadata.
+so_what: Missing verification metadata should be a blocker, not a silent omission.
+novelty: The benchmark encodes a formal-methods verification gap as a regression test.
+target_reader: Researchers evaluating formal-methods reproducibility contracts.
+evaluation_protocol:
+  proof_checker_path: papers/formal_methods_negative_missing_verification/proofs/checker.txt
+  proof_witness_path: papers/formal_methods_negative_missing_verification/proofs/witness.txt
+baselines: []
+key_questions:
+  - Does the formal_methods profile require verification metadata for required claims?
+expected_source_ids:
+  - proof_bundle
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean is used as a deterministic witness summary for the formal benchmark.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - proof_bundle
+    prohibited_substitutes: []
+non_goals:
+  - Treating prose-only proof descriptions as admissible evidence.

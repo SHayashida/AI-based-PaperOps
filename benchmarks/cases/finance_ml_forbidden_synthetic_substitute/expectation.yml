@@ -1,0 +1,23 @@
+case_id: finance_ml_forbidden_synthetic_substitute
+kind: negative
+description: Finance ML paper declares real-market regime but relies on a prohibited synthetic substitute.
+expected:
+  selected_profile: finance_ml
+  profile_report:
+    ok: false
+    blocker_categories:
+      - PROFILE_FORBIDDEN_SUBSTITUTE
+      - PROFILE_POLICY_COMPLIANCE
+  validate_profile:
+    ok: false
+  check_ci:
+    ok: false
+    fail_categories:
+      - FORBIDDEN_SUBSTITUTE
+      - PROFILE_FORBIDDEN_SUBSTITUTE
+      - PROFILE_POLICY_COMPLIANCE
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: false

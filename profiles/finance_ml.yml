@@ -1,0 +1,16 @@
+profile_id: finance_ml
+description: Finance/market ML contract with temporal split and baseline requirements.
+required_brief_fields:
+  - research_profile
+required_evaluation_protocol_fields:
+  - temporal_split
+  - forecast_horizon
+  - leakage_controls
+  - benchmark
+  - transaction_cost_model
+  - slippage_model
+min_baselines: 1
+require_claim_source_ids: true
+require_verification_for_required_claims: true
+warnings:
+  - Synthetic-only finance experiments should not be framed as real-market performance without explicit caveats.

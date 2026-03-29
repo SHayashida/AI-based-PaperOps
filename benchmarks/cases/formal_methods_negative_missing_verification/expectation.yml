@@ -1,0 +1,21 @@
+case_id: formal_methods_negative_missing_verification
+kind: negative
+description: Formal methods paper omits verification metadata for a required claim and should be blocked.
+expected:
+  selected_profile: formal_methods
+  profile_report:
+    ok: false
+    blocker_categories:
+      - PROFILE_VERIFICATION_EXPECTATIONS
+  validate_profile:
+    ok: false
+  check_ci:
+    ok: false
+    fail_categories:
+      - PROFILE_VERIFICATION_EXPECTATIONS
+      - VERIFICATION_COVERAGE
+    warn_categories: []
+  verify_paper:
+    ok: false
+  build_paper:
+    ok: false

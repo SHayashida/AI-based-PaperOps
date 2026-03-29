@@ -1,0 +1,28 @@
+paper_id: formal_methods_positive
+phase_status: release_ready
+research_profile: formal_methods
+central_claim: Formal-methods claims should point to concrete checker and witness artifacts with exact verification targets.
+so_what: A reviewer can validate the declared proof bundle locally.
+novelty: The benchmark demonstrates deterministic proof-artifact declarations.
+target_reader: Researchers evaluating formal-methods reproducibility contracts.
+evaluation_protocol:
+  proof_checker_path: papers/formal_methods_positive/proofs/checker.txt
+  proof_witness_path: papers/formal_methods_positive/proofs/witness.txt
+baselines: []
+key_questions:
+  - Does the formal_methods profile require local proof artifacts and exact verification?
+expected_source_ids:
+  - proof_bundle
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean is used as a deterministic witness summary for the formal benchmark.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - proof_bundle
+    prohibited_substitutes: []
+non_goals:
+  - Treating prose-only proof descriptions as admissible evidence.

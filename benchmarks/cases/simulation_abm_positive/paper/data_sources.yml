@@ -1,0 +1,18 @@
+paper_id: simulation_abm_positive
+sources:
+  - source_id: sim_output
+    title: Synthetic ABM output generated inside the benchmark workspace.
+    source_type: synthetic
+    acquisition_mode: generated_internal
+    status: verified
+    license_note: Generated inside the benchmark workspace.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: manifest
+        path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        run_id: run1
+      - kind: file
+        path: auto/variables.tex
+    snapshot: benchmark-run1
+    note: Synthetic origin is explicit.

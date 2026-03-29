@@ -1,0 +1,20 @@
+case_id: finance_ml_missing_eval_metadata
+kind: negative
+description: Finance ML paper omits required temporal/leakage metadata and should be blocked.
+expected:
+  selected_profile: finance_ml
+  profile_report:
+    ok: false
+    blocker_categories:
+      - PROFILE_EVAL_PROTOCOL
+  validate_profile:
+    ok: false
+  check_ci:
+    ok: false
+    fail_categories:
+      - PROFILE_EVAL_PROTOCOL
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: false

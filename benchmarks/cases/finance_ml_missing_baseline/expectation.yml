@@ -1,0 +1,20 @@
+case_id: finance_ml_missing_baseline
+kind: negative
+description: Finance ML paper omits the required baseline declaration and should be blocked.
+expected:
+  selected_profile: finance_ml
+  profile_report:
+    ok: false
+    blocker_categories:
+      - PROFILE_BASELINE_COVERAGE
+  validate_profile:
+    ok: false
+  check_ci:
+    ok: false
+    fail_categories:
+      - PROFILE_BASELINE_COVERAGE
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: false

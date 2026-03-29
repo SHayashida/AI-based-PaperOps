@@ -1,0 +1,16 @@
+paper_id: formal_methods_negative_missing_verification
+sources:
+  - source_id: proof_bundle
+    title: Local proof checker and witness artifacts for the formal benchmark.
+    source_type: document
+    acquisition_mode: public
+    status: verified
+    license_note: Stored directly in the benchmark workspace.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: file
+        path: papers/formal_methods_negative_missing_verification/proofs/checker.txt
+      - kind: file
+        path: papers/formal_methods_negative_missing_verification/proofs/witness.txt
+    snapshot: proof-bundle-v1
+    note: Proof objects are locally available and reproducible.

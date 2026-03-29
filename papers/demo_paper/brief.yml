@@ -1,9 +1,22 @@
 paper_id: demo_paper
 phase_status: release_ready
+research_profile: finance_ml
 central_claim: TruthWeave can carry a single experimental metric into a paper draft with auditability.
 so_what: This demonstrates a practical paper pipeline with explicit thesis and evidence gates.
 novelty: The workflow ties paper planning, evidence, and checks together in one repository.
 target_reader: Researchers evaluating reproducible paper operations tooling.
+evaluation_protocol:
+  temporal_split: train_2023_q1_to_q3__test_2023_q4
+  forecast_horizon: one_step_ahead
+  leakage_controls: features computed with past-only windowing
+  benchmark: rolling_mean_baseline
+  transaction_cost_model: fixed_bps_5
+  slippage_model: none_demo_synthetic
+  data_regime: synthetic_market
+baselines:
+  - name: rolling_mean_baseline
+    kind: deterministic_baseline
+    artifact_path: auto/MANIFEST.json
 key_questions:
   - Does the paper stay anchored to one central claim from plan to draft?
 expected_source_ids:

@@ -3,10 +3,12 @@ top_level:
     - .github
     - .venv
     - artifacts
+    - benchmarks
     - conf
     - data
     - paper
     - papers
+    - profiles
     - runs
     - src
     - tests

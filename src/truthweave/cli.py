@@ -25,12 +25,14 @@ from truthweave.briefs import (
     save_brief,
     validate_brief_data,
 )
+from truthweave.benchmarks import render_benchmark_report, run_benchmark_suite
 from truthweave.checks import (
     check_brief,
     check_claim_evidence,
     check_no_manual_numbers,
     check_packet,
     check_paper_freshness,
+    check_profile,
     check_provenance,
     check_references,
     check_review,
@@ -50,6 +52,7 @@ from truthweave.evidence import (
 )
 from truthweave.papers import get_paper_by_id, load_paper_config, write_discovery_manifest
 from truthweave.packet import build_reviewer_packet, render_packet
+from truthweave.profiles import build_profile_report, render_profile_report
 from truthweave.provenance import (
     build_provenance_ledger,
     default_provenance,
@@ -228,6 +231,28 @@ def _provenance_ledger_blockers(
     return blockers
 
 
+def _profile_report_blockers(
+    report: dict[str, Any], *, include_verification_expectations: bool
+) -> list[str]:
+    validation = report.get("validation", {})
+    blockers: list[str] = []
+    fields = [
+        "declaration_errors",
+        "missing_required_fields",
+        "missing_eval_fields",
+        "baseline_coverage",
+        "policy_blockers",
+        "forbidden_substitutes",
+    ]
+    if include_verification_expectations:
+        fields.append("verification_expectations")
+    for field in fields:
+        values = validation.get(field, [])
+        if isinstance(values, list) and values:
+            blockers.append(f"{field}={', '.join(str(value) for value in values)}")
+    return blockers
+
+
 def _build_paper_assets(paper_id: str) -> None:
     repo_root = _repo_root()
     paper = get_paper_by_id(repo_root, paper_id)
@@ -332,6 +357,17 @@ def _build_paper(paper_id: str) -> None:
         raise SystemExit(
             "Paper build blocked by provenance issues:\n- "
             + "\n- ".join(provenance_blockers)
+        )
+    profile_report = build_profile_report(
+        repo_root, paper_dir, paper_id, write_output=False
+    )
+    profile_blockers = _profile_report_blockers(
+        profile_report, include_verification_expectations=True
+    )
+    if profile_blockers:
+        raise SystemExit(
+            "Paper build blocked by profile policy issues:\n- "
+            + "\n- ".join(profile_blockers)
         )
     config = load_paper_config(paper_dir / "truthweave.yml")
     main_path = paper_dir / config["main"]
@@ -460,6 +496,17 @@ def run_command(overrides: list[str]) -> None:
                 f"Experiment run blocked by provenance issues for {paper_id}:\n- "
                 + "\n- ".join(provenance_blockers)
             )
+        profile_report = build_profile_report(
+            repo_root, paper_dir, paper_id, write_output=False
+        )
+        profile_blockers = _profile_report_blockers(
+            profile_report, include_verification_expectations=False
+        )
+        if profile_blockers:
+            raise SystemExit(
+                f"Experiment run blocked by profile policy issues for {paper_id}:\n- "
+                + "\n- ".join(profile_blockers)
+            )
     experiment_cls = get_experiment_class(experiment_name)
     experiment = experiment_cls(cfg, run_dir)
 
@@ -516,6 +563,7 @@ def check_command(paper_id: str | None, mode: str) -> None:
         issues.extend(check_brief.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_claim_evidence.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_packet.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_profile.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_provenance.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(check_verification.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(
@@ -534,6 +582,7 @@ def check_command(paper_id: str | None, mode: str) -> None:
             issues.extend(check_brief.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_claim_evidence.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_packet.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_profile.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_provenance.check(repo_root, paper_dir, pid, mode))
             issues.extend(check_verification.check(repo_root, paper_dir, pid, mode))
             issues.extend(
@@ -639,6 +688,25 @@ def validate_provenance_command(paper_id: str) -> None:
     print(f"data_sources.yml is valid for {paper_id}")
 
 
+def validate_profile_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    report = build_profile_report(repo_root, paper_dir, paper_id, write_output=False)
+    selected_profile = report.get("selected_profile")
+    if not selected_profile:
+        print(f"No research_profile selected for {paper_id}")
+        return
+    blockers = _profile_report_blockers(
+        report, include_verification_expectations=True
+    )
+    if blockers:
+        raise SystemExit(
+            "Invalid profile configuration:\n- " + "\n- ".join(blockers)
+        )
+    print(f"research_profile is valid for {paper_id}: {selected_profile}")
+
+
 def claim_report_command(paper_id: str, output_format: str) -> None:
     repo_root = _repo_root()
     paper = get_paper_by_id(repo_root, paper_id)
@@ -653,6 +721,14 @@ def provenance_report_command(paper_id: str, output_format: str) -> None:
     paper_dir = repo_root / paper["path"]
     ledger = build_provenance_ledger(repo_root, paper_dir, paper_id, write_output=True)
     print(render_provenance_report(ledger, output_format), end="")
+
+
+def profile_report_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    report = build_profile_report(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_profile_report(report, output_format), end="")
 
 
 def reviewer_packet_command(paper_id: str, output_format: str) -> None:
@@ -682,6 +758,18 @@ def verify_paper_command(paper_id: str, output_format: str) -> None:
     if (isinstance(failed_required, list) and failed_required) or (
         isinstance(missing_claims, list) and missing_claims
     ):
+        raise SystemExit(1)
+
+
+def benchmark_contracts_command(
+    case_ids: list[str] | None, output_format: str
+) -> None:
+    repo_root = _repo_root()
+    report = run_benchmark_suite(
+        repo_root, case_ids=case_ids or None, write_output=True
+    )
+    print(render_benchmark_report(report, output_format), end="")
+    if int(report.get("summary", {}).get("regressions", 0)) > 0:
         raise SystemExit(1)
 
 
@@ -900,6 +988,12 @@ def main() -> None:
     )
     validate_provenance_parser.add_argument("--paper", required=True)
 
+    validate_profile_parser = subparsers.add_parser(
+        "validate-profile",
+        help="Validate the selected research_profile and required domain declarations",
+    )
+    validate_profile_parser.add_argument("--paper", required=True)
+
     claim_report_parser = subparsers.add_parser(
         "claim-report", help="Build a machine-readable claim ledger"
     )
@@ -911,6 +1005,14 @@ def main() -> None:
     )
     provenance_report_parser.add_argument("--paper", required=True)
     provenance_report_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
+    profile_report_parser = subparsers.add_parser(
+        "profile-report", help="Build a machine-readable research profile report"
+    )
+    profile_report_parser.add_argument("--paper", required=True)
+    profile_report_parser.add_argument(
         "--format", choices=["table", "json", "md"], default="table"
     )
 
@@ -935,6 +1037,15 @@ def main() -> None:
     )
     verify_paper_parser.add_argument("--paper", required=True)
     verify_paper_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
+    benchmark_parser = subparsers.add_parser(
+        "benchmark-contracts",
+        help="Run the deterministic positive/negative domain-policy benchmark corpus",
+    )
+    benchmark_parser.add_argument("--case", action="append", dest="cases")
+    benchmark_parser.add_argument(
         "--format", choices=["table", "json", "md"], default="table"
     )
 
@@ -1014,16 +1125,22 @@ def main() -> None:
         validate_evidence_command(args.paper)
     elif args.command == "validate-provenance":
         validate_provenance_command(args.paper)
+    elif args.command == "validate-profile":
+        validate_profile_command(args.paper)
     elif args.command == "claim-report":
         claim_report_command(args.paper, args.format)
     elif args.command == "provenance-report":
         provenance_report_command(args.paper, args.format)
+    elif args.command == "profile-report":
+        profile_report_command(args.paper, args.format)
     elif args.command == "reviewer-packet":
         reviewer_packet_command(args.paper, args.format)
     elif args.command == "verification-report":
         verification_report_command(args.paper, args.format)
     elif args.command == "verify-paper":
         verify_paper_command(args.paper, args.format)
+    elif args.command == "benchmark-contracts":
+        benchmark_contracts_command(args.cases, args.format)
     elif args.command == "approve-phase":
         approve_phase_command(args.paper, args.phase)
     elif args.command == "review-thread":

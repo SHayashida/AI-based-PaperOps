@@ -24,6 +24,7 @@ def default_brief(paper_id: str) -> dict[str, Any]:
     return {
         "paper_id": paper_id,
         "phase_status": "idea_locked",
+        "research_profile": "",
         "expected_source_ids": ["example_simulated_data"],
         "central_claim": "State the single most important claim this paper will defend.",
         "so_what": "Explain why this claim matters for the target reader.",
@@ -44,6 +45,8 @@ def default_brief(paper_id: str) -> dict[str, Any]:
                 "prohibited_substitutes": [],
             }
         ],
+        "evaluation_protocol": {},
+        "baselines": [],
         "non_goals": [
             "Fully autonomous paper writing without a human approval step."
         ],
@@ -86,10 +89,45 @@ def validate_brief_data(data: dict[str, Any]) -> list[str]:
             "Invalid phase_status; expected one of: " + ", ".join(PHASES)
         )
 
+    research_profile = data.get("research_profile")
+    if research_profile is not None and not isinstance(research_profile, str):
+        errors.append("research_profile must be a string when provided")
+
     for field in ["key_questions", "planned_evidence", "non_goals"]:
         value = data.get(field)
         if not isinstance(value, list) or not value:
             errors.append(f"Missing or empty list: {field}")
+
+    evaluation_protocol = data.get("evaluation_protocol")
+    if evaluation_protocol is not None and not isinstance(evaluation_protocol, dict):
+        errors.append("evaluation_protocol must be a mapping when provided")
+
+    baselines = data.get("baselines")
+    if baselines is not None:
+        if not isinstance(baselines, list):
+            errors.append("baselines must be a list when provided")
+        else:
+            for idx, baseline in enumerate(baselines):
+                if isinstance(baseline, str):
+                    if not baseline:
+                        errors.append(f"baselines[{idx}] must not be empty")
+                    continue
+                if not isinstance(baseline, dict):
+                    errors.append(f"baselines[{idx}] must be a string or mapping")
+                    continue
+                name = baseline.get("name")
+                if not isinstance(name, str) or not name:
+                    errors.append(f"baselines[{idx}].name must be a non-empty string")
+                kind = baseline.get("kind")
+                if kind is not None and (not isinstance(kind, str) or not kind):
+                    errors.append(f"baselines[{idx}].kind must be a non-empty string")
+                artifact_path = baseline.get("artifact_path")
+                if artifact_path is not None and (
+                    not isinstance(artifact_path, str) or not artifact_path
+                ):
+                    errors.append(
+                        f"baselines[{idx}].artifact_path must be a non-empty string"
+                    )
 
     expected_source_ids = data.get("expected_source_ids")
     if expected_source_ids is not None and (

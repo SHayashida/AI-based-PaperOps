@@ -1,0 +1,21 @@
+paper_id: simulation_abm_positive
+claims:
+  - claim_id: main_claim
+    status: supported
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - sim_output
+        verification:
+          comparison_mode: numeric_tolerance
+          expected_value: 0.5101
+          tolerance: 0.0001
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - sim_output
+        verification:
+          comparison_mode: manifest_entry_present

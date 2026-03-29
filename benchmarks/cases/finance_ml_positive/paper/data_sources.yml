@@ -1,0 +1,19 @@
+paper_id: finance_ml_positive
+sources:
+  - source_id: market_data
+    title: Synthetic market benchmark data used for deterministic finance profile tests.
+    source_type: synthetic
+    acquisition_mode: generated_internal
+    status: verified
+    license_note: Generated inside the benchmark workspace.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: file
+        path: auto/variables.tex
+        version_note: Paper-facing metric macro.
+      - kind: manifest
+        path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        run_id: run1
+    snapshot: benchmark-run1
+    note: Synthetic market benchmark data is acceptable here because the brief declares data_regime=synthetic_market.

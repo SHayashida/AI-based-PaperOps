@@ -1,9 +1,15 @@
 paper_id: example
 phase_status: release_ready
+research_profile: simulation_abm
 central_claim: TruthWeave keeps experiment metrics traceable into paper claims.
 so_what: Researchers can inspect whether each quantitative statement is backed by generated evidence.
 novelty: The workflow couples reproducible runs with paper-facing argument checks.
 target_reader: ML systems researchers building reproducible research pipelines.
+evaluation_protocol:
+  environment: truthweave_example_simulator
+  seed_policy: fixed_seed_via_conf_base
+  config_artifact: conf/exp/example.yaml
+baselines: []
 key_questions:
   - Can a paper claim be traced back to generated metrics?
 expected_source_ids:

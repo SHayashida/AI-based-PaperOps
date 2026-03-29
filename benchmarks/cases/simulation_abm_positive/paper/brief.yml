@@ -1,0 +1,29 @@
+paper_id: simulation_abm_positive
+phase_status: release_ready
+research_profile: simulation_abm
+central_claim: Simulation claims are admissible when synthetic origin and run artifacts are explicit.
+so_what: A reviewer can see that the ABM evidence comes from a declared simulation pipeline.
+novelty: The benchmark makes run-backed synthetic evidence explicit and auditable.
+target_reader: Researchers evaluating simulation-focused research contracts.
+evaluation_protocol:
+  environment: deterministic_abm_env
+  seed_policy: fixed_seed_v1
+  config_artifact: conf/base.yaml
+baselines: []
+key_questions:
+  - Does the simulation profile require run-backed artifacts and explicit synthetic origin?
+expected_source_ids:
+  - sim_output
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean supports the simulation benchmark claim.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - sim_output
+    prohibited_substitutes: []
+non_goals:
+  - Presenting synthetic output as observational evidence.

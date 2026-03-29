@@ -1,0 +1,18 @@
+paper_id: simulation_abm_negative_synthetic_undeclared
+sources:
+  - source_id: sim_output
+    title: Generated simulation output misdeclared as a dataset.
+    source_type: dataset
+    acquisition_mode: generated_internal
+    status: verified
+    license_note: Generated inside the benchmark workspace.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: manifest
+        path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        run_id: run1
+      - kind: file
+        path: auto/variables.tex
+    snapshot: benchmark-run1
+    note: This is intentionally invalid because generated_internal sources must be synthetic.

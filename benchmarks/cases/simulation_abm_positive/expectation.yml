@@ -1,0 +1,19 @@
+case_id: simulation_abm_positive
+kind: positive
+description: Simulation ABM paper explicitly declares synthetic origin, run-backed artifacts, and verification targets.
+expected:
+  selected_profile: simulation_abm
+  profile_report:
+    ok: true
+    blocker_categories: []
+    warning_count: 2
+  validate_profile:
+    ok: true
+  check_ci:
+    ok: true
+    fail_categories: []
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: true

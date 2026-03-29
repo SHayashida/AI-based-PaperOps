@@ -31,5 +31,9 @@ jobs:
         run: make packet-all
       - name: Verify claims
         run: make verify-all
+      - name: Build profile report
+        run: make profile-all
       - name: Check
         run: uv run truthweave check --mode ci
+      - name: Benchmark contracts
+        run: make benchmarks

@@ -1,0 +1,10 @@
+paper_id: formal_methods_negative_missing_verification
+claims:
+  - claim_id: main_claim
+    status: supported
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - proof_bundle

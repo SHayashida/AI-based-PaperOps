@@ -1,0 +1,33 @@
+paper_id: finance_ml_missing_baseline
+phase_status: release_ready
+research_profile: finance_ml
+central_claim: Finance-profiled papers must declare comparison baselines.
+so_what: Missing baseline metadata should not silently pass domain validation.
+novelty: The corpus turns a missing baseline into a reproducible blocker.
+target_reader: Researchers evaluating finance-specific policy enforcement.
+evaluation_protocol:
+  temporal_split: train_2021_to_2022__test_2023
+  forecast_horizon: one_step_ahead
+  leakage_controls: rolling_features_use_past_only_windows
+  benchmark: rolling_mean_baseline
+  transaction_cost_model: fixed_bps_5
+  slippage_model: zero_slippage_synthetic_demo
+  data_regime: synthetic_market
+baselines: []
+key_questions:
+  - Will TruthWeave block finance papers that omit baseline declarations?
+expected_source_ids:
+  - market_data
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean supports the finance benchmark claim.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - market_data
+    prohibited_substitutes: []
+non_goals:
+  - Real-market alpha claims.

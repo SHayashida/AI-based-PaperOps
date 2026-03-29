@@ -1,0 +1,14 @@
+paper_id: finance_ml_missing_eval_metadata
+claims:
+  - claim_id: main_claim
+    status: supported
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - market_data
+        verification:
+          comparison_mode: numeric_tolerance
+          expected_value: 0.5101
+          tolerance: 0.0001

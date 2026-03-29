@@ -14,6 +14,7 @@ Reproducible research workflow template for academic papers. Ensures experiments
 ```bash
 uv sync
 uv run truthweave validate-brief --paper example
+uv run truthweave validate-profile --paper example
 uv run truthweave validate-provenance --paper example
 uv run truthweave run exp=example
 uv run truthweave discover
@@ -25,7 +26,9 @@ uv run truthweave claim-report --paper example --format md
 uv run truthweave review-thread --paper example --phase draft_reviewed --format md
 uv run truthweave reviewer-packet --paper example --format md
 uv run truthweave verify-paper --paper example --format md
+uv run truthweave profile-report --paper example --format md
 uv run truthweave check --paper example
+uv run truthweave benchmark-contracts --format md
 ```
 
 ## Overview
@@ -113,6 +116,28 @@ uv run truthweave build-paper-assets --paper <paper_id>
 
 The paper should use `\input{auto/variables.tex}` and reference macros instead of hardcoded numbers.
 
+### Domain Policy Packs
+
+Select a deterministic domain contract in `brief.yml`:
+
+```yaml
+research_profile: simulation_abm
+```
+
+Built-in profiles live under `profiles/` and strengthen the generic trust stack with domain-specific admissibility rules. Current starter packs include:
+- `simulation_abm`: requires explicit simulation environment/seed/config declarations and run-backed evidence
+- `finance_ml`: requires temporal split metadata, benchmark/baseline declarations, and leakage-sensitive evaluation fields
+- `formal_methods`: requires proof checker/witness declarations and exact or manifest-based verification expectations
+
+Validate and export the profile compliance report with:
+
+```bash
+uv run truthweave validate-profile --paper <paper_id>
+uv run truthweave profile-report --paper <paper_id> --format md
+```
+
+Profile reports are written to `artifacts/profiles/<paper_id>/profile_report.json` and `artifacts/profiles/<paper_id>/profile_report.md`.
+
 ### Claim Evidence Binding
 
 Bind each brief claim to concrete repo artifacts:
@@ -176,6 +201,25 @@ This writes:
 
 The reviewer packet is for inspection. The verification harness is for executable replay and comparison against declared evidence targets.
 
+### Benchmark Corpus
+
+TruthWeave also ships a deterministic positive/negative benchmark corpus under `benchmarks/cases/`. These cases are not ordinary papers; they are product regression fixtures showing:
+- admissible profiled papers that pass
+- warning-only cases that remain inspectable
+- blocked shortcuts that violate domain policy
+
+Run the corpus with:
+
+```bash
+uv run truthweave benchmark-contracts --format md
+```
+
+This writes:
+- `artifacts/benchmarks/benchmark_report.json`
+- `artifacts/benchmarks/benchmark_report.md`
+
+Each case includes an `expectation.yml` that records expected pass/fail behavior for `validate-profile`, `check --mode ci`, `verify-paper`, and `build-paper`, plus expected blocker categories where relevant.
+
 ### Building the PDF
 
 ```bash
@@ -207,6 +251,7 @@ uv run truthweave check --paper <paper_id> --mode ci
 
 - Papers live under `papers/<paper_id>/` with a `truthweave.yml` configuration
 - `brief.yml` is the canonical source of claim IDs and phase status
+- `brief.yml` may also select `research_profile` plus minimal domain declarations such as `evaluation_protocol` and `baselines`
 - `data_sources.yml` records admissible data acquisition and provenance state for each declared source ID
 - `evidence.yml` binds each claim ID to concrete evidence objects
 - `truthweave discover` scans for `truthweave.yml` and writes `artifacts/manifests/papers_index.json`
@@ -216,25 +261,40 @@ uv run truthweave check --paper <paper_id> --mode ci
 - `truthweave reviewer-packet --paper <paper_id>` writes `artifacts/packets/<paper_id>/packet.json` plus human-readable exports
 - `truthweave verification-report --paper <paper_id>` writes `artifacts/verification/<paper_id>/verification_report.json`
 - `truthweave verify-paper --paper <paper_id>` runs deterministic claim verification and exits nonzero when required verification targets fail
+- `truthweave profile-report --paper <paper_id>` writes `artifacts/profiles/<paper_id>/profile_report.json`
+- `truthweave benchmark-contracts` writes `artifacts/benchmarks/benchmark_report.json`
 - `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine in `truthweave.yml`
-- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`
+- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make profile PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`, `make benchmarks`
 
 ## Workflow Summary: Canonical Paper Flow
 
 1. `uv run truthweave create-paper mypaper`
-2. Fill `brief.yml` and run `uv run truthweave validate-brief --paper mypaper`
-3. Declare references in `references.yml` and run `uv run truthweave sync-refs --paper mypaper`
-4. Declare required source IDs in `brief.yml` and `data_sources.yml`, then run `uv run truthweave validate-provenance --paper mypaper`
-5. Run experiments with `uv run truthweave run exp=<exp_name>`
-6. Sync paper assets with `uv run truthweave build-paper-assets --paper mypaper`
-7. Bind claims with `uv run truthweave validate-evidence --paper mypaper`
-8. Build the provenance ledger with `uv run truthweave provenance-report --paper mypaper --format md`
-9. Build the claim ledger with `uv run truthweave claim-report --paper mypaper --format md`
-10. Run `uv run truthweave review-thread --paper mypaper --phase draft_reviewed --format md`
-11. Generate the reviewer packet with `uv run truthweave reviewer-packet --paper mypaper --format md`
-12. Verify major claims with `uv run truthweave verify-paper --paper mypaper --format md`
-13. Run `uv run truthweave check --paper mypaper --mode ci`
-14. Build the PDF with `uv run truthweave build-paper --paper mypaper`
+2. Fill `brief.yml`, optionally select `research_profile`, and run `uv run truthweave validate-brief --paper mypaper`
+3. Validate the domain contract with `uv run truthweave validate-profile --paper mypaper`
+4. Declare references in `references.yml` and run `uv run truthweave sync-refs --paper mypaper`
+5. Declare required source IDs in `brief.yml` and `data_sources.yml`, then run `uv run truthweave validate-provenance --paper mypaper`
+6. Run experiments with `uv run truthweave run exp=<exp_name>`
+7. Sync paper assets with `uv run truthweave build-paper-assets --paper mypaper`
+8. Bind claims with `uv run truthweave validate-evidence --paper mypaper`
+9. Build the provenance ledger with `uv run truthweave provenance-report --paper mypaper --format md`
+10. Build the claim ledger with `uv run truthweave claim-report --paper mypaper --format md`
+11. Run `uv run truthweave review-thread --paper mypaper --phase draft_reviewed --format md`
+12. Generate the reviewer packet with `uv run truthweave reviewer-packet --paper mypaper --format md`
+13. Verify major claims with `uv run truthweave verify-paper --paper mypaper --format md`
+14. Export profile compliance with `uv run truthweave profile-report --paper mypaper --format md`
+15. Run `uv run truthweave check --paper mypaper --mode ci`
+16. Build the PDF with `uv run truthweave build-paper --paper mypaper`
+
+## Benchmark Workflow
+
+1. Add a new case under `benchmarks/cases/<case_id>/`
+2. Provide `expectation.yml`
+3. Add the minimal `paper/` overlay files needed to express the case
+4. Add any repo-root support files under `support/` if the case needs them
+5. Run `uv run truthweave benchmark-contracts --case <case_id> --format md`
+6. Confirm the observed contract behavior matches the expectation file
+
+This corpus is the main regression harness for domain-policy evolution. If a profile rule changes intentionally, update the relevant expectation file and keep the case minimal and explicit.
 
 ## Workflow Summary: Add Experiment
 

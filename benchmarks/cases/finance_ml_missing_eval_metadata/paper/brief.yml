@@ -1,0 +1,33 @@
+paper_id: finance_ml_missing_eval_metadata
+phase_status: release_ready
+research_profile: finance_ml
+central_claim: Finance papers require explicit temporal and leakage-sensitive evaluation metadata.
+so_what: Missing protocol declarations should surface as blockers rather than silent assumptions.
+novelty: The benchmark encodes incomplete finance evaluation metadata as a regression case.
+target_reader: Researchers evaluating finance-specific admissibility checks.
+evaluation_protocol:
+  forecast_horizon: one_step_ahead
+  benchmark: rolling_mean_baseline
+  transaction_cost_model: fixed_bps_5
+  data_regime: synthetic_market
+baselines:
+  - name: rolling_mean_baseline
+    kind: deterministic_baseline
+    artifact_path: auto/MANIFEST.json
+key_questions:
+  - Will TruthWeave reject incomplete finance evaluation protocol declarations?
+expected_source_ids:
+  - market_data
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean supports the finance benchmark claim.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - market_data
+    prohibited_substitutes: []
+non_goals:
+  - Real-market alpha claims.

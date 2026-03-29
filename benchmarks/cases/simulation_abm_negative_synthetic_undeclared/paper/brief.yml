@@ -1,0 +1,29 @@
+paper_id: simulation_abm_negative_synthetic_undeclared
+phase_status: release_ready
+research_profile: simulation_abm
+central_claim: Synthetic simulation output must be declared as synthetic rather than implied as observational data.
+so_what: Misdeclared simulation provenance should become a deterministic blocker.
+novelty: The benchmark demonstrates a provenance-level domain shortcut failure.
+target_reader: Researchers evaluating simulation-focused research contracts.
+evaluation_protocol:
+  environment: deterministic_abm_env
+  seed_policy: fixed_seed_v1
+  config_artifact: conf/base.yaml
+baselines: []
+key_questions:
+  - Does TruthWeave block generated_internal sources that are not explicitly synthetic?
+expected_source_ids:
+  - sim_output
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean supports the simulation benchmark claim.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - sim_output
+    prohibited_substitutes: []
+non_goals:
+  - Presenting synthetic output as observational evidence.

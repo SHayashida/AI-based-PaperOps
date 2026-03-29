@@ -1,0 +1,37 @@
+paper_id: finance_ml_forbidden_synthetic_substitute
+phase_status: release_ready
+research_profile: finance_ml
+central_claim: Finance papers should not quietly replace required market data with synthetic substitutes.
+so_what: Domain policy must block real-market framing when the data contract is violated.
+novelty: The benchmark demonstrates profile-level forbidden substitute enforcement.
+target_reader: Researchers evaluating finance-specific admissibility checks.
+evaluation_protocol:
+  temporal_split: train_2021_to_2022__test_2023
+  forecast_horizon: one_step_ahead
+  leakage_controls: rolling_features_use_past_only_windows
+  benchmark: rolling_mean_baseline
+  transaction_cost_model: fixed_bps_5
+  slippage_model: zero_slippage_synthetic_demo
+  data_regime: real_market
+baselines:
+  - name: rolling_mean_baseline
+    kind: deterministic_baseline
+    artifact_path: auto/MANIFEST.json
+key_questions:
+  - Will TruthWeave reject a synthetic substitute when the brief requires real-market data?
+expected_source_ids:
+  - market_data
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: MetricMean supports the finance benchmark claim.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - market_data
+    prohibited_substitutes:
+      - synthetic
+non_goals:
+  - Real-market alpha claims.

@@ -1,0 +1,16 @@
+profile_id: simulation_abm
+description: Simulation/ABM contract requiring explicit environment, seed policy, and concrete run-artifact support.
+required_brief_fields:
+  - research_profile
+required_evaluation_protocol_fields:
+  - environment
+  - seed_policy
+  - config_artifact
+min_baselines: 0
+require_claim_source_ids: true
+require_verification_for_required_claims: true
+required_evidence_kinds_any_of:
+  - manifest
+  - artifact
+warnings:
+  - Synthetic origins must remain explicit and should not be presented as observational evidence.

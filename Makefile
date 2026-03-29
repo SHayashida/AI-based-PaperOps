@@ -1,4 +1,4 @@
-.PHONY: run discover assets assets-all refs refs-all provenance provenance-all claims claims-all packet packet-all verify verify-all review review-all paper paper-all check check-all analysis analysis-all
+.PHONY: run discover assets assets-all refs refs-all provenance provenance-all profile profile-all claims claims-all packet packet-all verify verify-all review review-all paper paper-all check check-all analysis analysis-all benchmarks
 
 run:
 	uv run snakemake -j 1 run_example
@@ -34,6 +34,16 @@ provenance-all: discover
 	@for paper in $$(uv run python -c 'import json;print(" ".join([p["paper_id"] for p in json.load(open("artifacts/manifests/papers_index.json"))["papers"]]))'); do \
 		echo "Building provenance ledger for $$paper"; \
 		uv run truthweave provenance-report --paper $$paper --format md; \
+	done
+
+profile: discover
+	@if [ -z "$(PAPER)" ]; then echo "Set PAPER=<paper_id>"; exit 1; fi
+	uv run truthweave profile-report --paper $(PAPER) --format md
+
+profile-all: discover
+	@for paper in $$(uv run python -c 'import json;print(" ".join([p["paper_id"] for p in json.load(open("artifacts/manifests/papers_index.json"))["papers"]]))'); do \
+		echo "Building profile report for $$paper"; \
+		uv run truthweave profile-report --paper $$paper --format md; \
 	done
 
 claims: discover
@@ -108,3 +118,6 @@ analysis-all:
 		echo "Running analysis $$name"; \
 		uv run python -m truthweave.analysis.$$name; \
 	done
+
+benchmarks:
+	uv run truthweave benchmark-contracts --format md

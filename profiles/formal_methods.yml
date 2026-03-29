@@ -1,0 +1,15 @@
+profile_id: formal_methods
+description: Formal methods contract requiring proof/checker declarations and exact verification expectations.
+required_brief_fields:
+  - research_profile
+required_evaluation_protocol_fields:
+  - proof_checker_path
+  - proof_witness_path
+min_baselines: 0
+require_claim_source_ids: true
+require_verification_for_required_claims: true
+required_verification_modes_any_of:
+  - exact_match
+  - manifest_entry_present
+warnings:
+  - Core claims should reference proof or witness artifacts rather than prose-only descriptions.

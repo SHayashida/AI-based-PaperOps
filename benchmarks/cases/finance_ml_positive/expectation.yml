@@ -1,0 +1,19 @@
+case_id: finance_ml_positive
+kind: positive
+description: Finance ML paper with complete temporal protocol, baseline declaration, and verification metadata.
+expected:
+  selected_profile: finance_ml
+  profile_report:
+    ok: true
+    blocker_categories: []
+    warning_count: 2
+  validate_profile:
+    ok: true
+  check_ci:
+    ok: true
+    fail_categories: []
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: true

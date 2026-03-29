@@ -1,0 +1,21 @@
+case_id: simulation_abm_negative_synthetic_undeclared
+kind: negative
+description: Simulation outputs are generated internally but misdeclared as non-synthetic data and should be blocked by provenance policy.
+expected:
+  selected_profile: simulation_abm
+  profile_report:
+    ok: true
+    blocker_categories: []
+    warning_count: 1
+  validate_profile:
+    ok: true
+  check_ci:
+    ok: false
+    fail_categories:
+      - CLAIM_PROVENANCE_COVERAGE
+      - DATA_SOURCE_POLICY
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: false

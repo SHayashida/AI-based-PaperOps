@@ -1,0 +1,19 @@
+case_id: formal_methods_positive
+kind: positive
+description: Formal methods paper declares proof artifacts and exact verification expectations.
+expected:
+  selected_profile: formal_methods
+  profile_report:
+    ok: true
+    blocker_categories: []
+    warning_count: 1
+  validate_profile:
+    ok: true
+  check_ci:
+    ok: true
+    fail_categories: []
+    warn_categories: []
+  verify_paper:
+    ok: true
+  build_paper:
+    ok: true

@@ -1,0 +1,29 @@
+paper_id: finance_ml_positive
+claims:
+  - claim_id: main_claim
+    status: supported
+    note: Bound to the generated metric macro and manifest provenance.
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - market_data
+        verification:
+          comparison_mode: numeric_tolerance
+          expected_value: 0.5101
+          tolerance: 0.0001
+          rerun_scope: run_and_assets
+          rerun_commands:
+            - make run
+            - uv run truthweave build-paper-assets --paper finance_ml_positive
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - market_data
+        verification:
+          comparison_mode: manifest_entry_present
+          rerun_scope: assets_only
+          rerun_commands:
+            - uv run truthweave build-paper-assets --paper finance_ml_positive

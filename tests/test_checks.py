@@ -13,6 +13,7 @@ from truthweave.cli import (
     claim_report_command,
     check_command,
     create_exp_command,
+    profile_report_command,
     provenance_report_command,
     reviewer_packet_command,
     run_command,
@@ -20,6 +21,7 @@ from truthweave.cli import (
     scaffold_provenance_command,
     validate_brief_command,
     validate_evidence_command,
+    validate_profile_command,
     validate_provenance_command,
     verification_report_command,
     verify_paper_command,
@@ -46,6 +48,7 @@ def _setup_min_repo(tmp_path: Path) -> None:
     )
     (tmp_path / "runs").mkdir()
     (tmp_path / "papers").mkdir()
+    (tmp_path / "profiles").mkdir()
     (tmp_path / "src" / "truthweave").mkdir(parents=True)
 
     run_dir = tmp_path / "runs" / "run1"
@@ -60,6 +63,10 @@ def _setup_min_repo(tmp_path: Path) -> None:
         "metrics.json",
     ]:
         _write_file(run_dir / name, "{}")
+
+
+def _write_profile(tmp_path: Path, profile_id: str, content: dict[str, object]) -> None:
+    _write_file(tmp_path / "profiles" / f"{profile_id}.yml", OmegaConf.to_yaml(content))
 
 
 def _setup_paper(tmp_path: Path, paper_id: str, stale_manifest: bool) -> None:
@@ -1146,3 +1153,296 @@ def test_build_claim_ledger_marks_stale_when_run_id_drifts(tmp_path: Path) -> No
     ledger = build_claim_ledger(tmp_path, tmp_path / "papers" / "paper1", "paper1")
 
     assert ledger["entries"][0]["status"] == "stale"
+
+
+def test_validate_profile_command_accepts_valid_simulation_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_profile(
+        tmp_path,
+        "simulation_abm",
+        {
+            "profile_id": "simulation_abm",
+            "description": "Simulation profile",
+            "required_brief_fields": ["research_profile"],
+            "required_evaluation_protocol_fields": [
+                "environment",
+                "seed_policy",
+                "config_artifact",
+            ],
+            "min_baselines": 0,
+            "require_claim_source_ids": True,
+            "require_verification_for_required_claims": True,
+            "required_evidence_kinds_any_of": ["manifest", "artifact"],
+            "warnings": [],
+        },
+    )
+    _write_file(
+        tmp_path / "papers" / "paper1" / "brief.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "phase_status": "release_ready",
+                "research_profile": "simulation_abm",
+                "central_claim": "Metrics flow from experiments into paper claims.",
+                "so_what": "This keeps the argument auditable.",
+                "novelty": "The workflow links runs and writing.",
+                "target_reader": "Researchers.",
+                "evaluation_protocol": {
+                    "environment": "test_sim",
+                    "seed_policy": "fixed_seed",
+                    "config_artifact": "conf/base.yaml",
+                },
+                "baselines": [],
+                "key_questions": ["Can the main claim be traced?"],
+                "expected_source_ids": ["example_source"],
+                "planned_evidence": [
+                    {
+                        "claim_id": "main_claim",
+                        "required": True,
+                        "verification_required": True,
+                        "experiment": "example",
+                        "description": "MetricMean supports the main claim.",
+                        "expected_metrics": ["MetricMean"],
+                        "source_ids": ["example_source"],
+                        "prohibited_substitutes": [],
+                    }
+                ],
+                "non_goals": ["Autonomous publication."],
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+
+    validate_profile_command("paper1")
+    profile_report_command("paper1", "md")
+
+    report_path = tmp_path / "artifacts" / "profiles" / "paper1" / "profile_report.json"
+    report_md = tmp_path / "artifacts" / "profiles" / "paper1" / "profile_report.md"
+    assert report_path.exists()
+    assert report_md.exists()
+    report = json.loads(report_path.read_text())
+    assert report["selected_profile"] == "simulation_abm"
+    assert report["summary"]["blockers"] == 0
+
+
+def test_check_mode_ci_fails_on_profile_eval_gap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_profile(
+        tmp_path,
+        "finance_ml",
+        {
+            "profile_id": "finance_ml",
+            "description": "Finance ML profile",
+            "required_brief_fields": ["research_profile"],
+            "required_evaluation_protocol_fields": [
+                "temporal_split",
+                "forecast_horizon",
+                "leakage_controls",
+                "benchmark",
+                "transaction_cost_model",
+                "slippage_model",
+            ],
+            "min_baselines": 1,
+            "require_claim_source_ids": True,
+            "require_verification_for_required_claims": True,
+            "warnings": [],
+        },
+    )
+    _write_file(
+        tmp_path / "papers" / "paper1" / "brief.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "phase_status": "release_ready",
+                "research_profile": "finance_ml",
+                "central_claim": "Metrics flow from experiments into paper claims.",
+                "so_what": "This keeps the argument auditable.",
+                "novelty": "The workflow links runs and writing.",
+                "target_reader": "Researchers.",
+                "evaluation_protocol": {
+                    "temporal_split": "train_then_test",
+                    "forecast_horizon": "one_step",
+                    "leakage_controls": "past_only_features",
+                    "benchmark": "rolling_mean",
+                    "transaction_cost_model": "fixed_bps_5",
+                },
+                "baselines": [{"name": "rolling_mean", "kind": "deterministic"}],
+                "key_questions": ["Can the main claim be traced?"],
+                "expected_source_ids": ["example_source"],
+                "planned_evidence": [
+                    {
+                        "claim_id": "main_claim",
+                        "required": True,
+                        "verification_required": True,
+                        "experiment": "example",
+                        "description": "MetricMean supports the main claim.",
+                        "expected_metrics": ["MetricMean"],
+                        "source_ids": ["example_source"],
+                        "prohibited_substitutes": [],
+                    }
+                ],
+                "non_goals": ["Autonomous publication."],
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+    profile_report_command("paper1", "md")
+
+    with pytest.raises(SystemExit):
+        check_command("paper1", mode="ci")
+
+    output = capsys.readouterr().out
+    assert "[FAIL:PROFILE_EVAL_PROTOCOL]" in output
+    assert "slippage_model" in output
+
+
+def test_run_command_blocks_profile_policy_issues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_profile(
+        tmp_path,
+        "finance_ml",
+        {
+            "profile_id": "finance_ml",
+            "description": "Finance ML profile",
+            "required_brief_fields": ["research_profile"],
+            "required_evaluation_protocol_fields": [
+                "temporal_split",
+                "forecast_horizon",
+                "leakage_controls",
+                "benchmark",
+                "transaction_cost_model",
+                "slippage_model",
+            ],
+            "min_baselines": 1,
+            "require_claim_source_ids": True,
+            "require_verification_for_required_claims": True,
+            "warnings": [],
+        },
+    )
+    _write_file(
+        tmp_path / "papers" / "paper1" / "brief.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "phase_status": "experiment_ready",
+                "research_profile": "finance_ml",
+                "central_claim": "Metrics flow from experiments into paper claims.",
+                "so_what": "This keeps the argument auditable.",
+                "novelty": "The workflow links runs and writing.",
+                "target_reader": "Researchers.",
+                "evaluation_protocol": {
+                    "temporal_split": "train_then_test",
+                    "forecast_horizon": "one_step",
+                },
+                "baselines": [],
+                "key_questions": ["Can the main claim be traced?"],
+                "expected_source_ids": ["example_source"],
+                "planned_evidence": [
+                    {
+                        "claim_id": "main_claim",
+                        "required": True,
+                        "verification_required": True,
+                        "experiment": "example",
+                        "description": "MetricMean supports the main claim.",
+                        "expected_metrics": ["MetricMean"],
+                        "source_ids": ["example_source"],
+                        "prohibited_substitutes": [],
+                    }
+                ],
+                "non_goals": ["Autonomous publication."],
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        "truthweave.cli._load_config",
+        lambda overrides: OmegaConf.create(
+            {
+                "project": {"runs_dir": "runs"},
+                "runtime": {"seed": 1},
+                "experiment": {"name": "example", "output_subdir": "run1"},
+            }
+        ),
+    )
+
+    with pytest.raises(SystemExit):
+        run_command(["exp=example"])
+
+
+def test_build_paper_command_blocks_profile_verification_gaps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_min_repo(tmp_path)
+    _setup_paper(tmp_path, "paper1", stale_manifest=False)
+    _write_profile(
+        tmp_path,
+        "formal_methods",
+        {
+            "profile_id": "formal_methods",
+            "description": "Formal methods profile",
+            "required_brief_fields": ["research_profile"],
+            "required_evaluation_protocol_fields": [
+                "proof_checker_path",
+                "proof_witness_path",
+            ],
+            "min_baselines": 0,
+            "require_claim_source_ids": True,
+            "require_verification_for_required_claims": True,
+            "required_verification_modes_any_of": [
+                "exact_match",
+                "manifest_entry_present",
+            ],
+            "warnings": [],
+        },
+    )
+    _write_file(tmp_path / "proofs" / "checker.txt", "ok")
+    _write_file(tmp_path / "proofs" / "witness.txt", "ok")
+    _write_file(
+        tmp_path / "papers" / "paper1" / "brief.yml",
+        OmegaConf.to_yaml(
+            {
+                "paper_id": "paper1",
+                "phase_status": "release_ready",
+                "research_profile": "formal_methods",
+                "central_claim": "Metrics flow from experiments into paper claims.",
+                "so_what": "This keeps the argument auditable.",
+                "novelty": "The workflow links runs and writing.",
+                "target_reader": "Researchers.",
+                "evaluation_protocol": {
+                    "proof_checker_path": "proofs/checker.txt",
+                    "proof_witness_path": "proofs/witness.txt",
+                },
+                "baselines": [],
+                "key_questions": ["Can the main claim be traced?"],
+                "expected_source_ids": ["example_source"],
+                "planned_evidence": [
+                    {
+                        "claim_id": "main_claim",
+                        "required": True,
+                        "verification_required": False,
+                        "experiment": "example",
+                        "description": "MetricMean supports the main claim.",
+                        "expected_metrics": ["MetricMean"],
+                        "source_ids": ["example_source"],
+                        "prohibited_substitutes": [],
+                    }
+                ],
+                "non_goals": ["Autonomous publication."],
+            }
+        ),
+    )
+    monkeypatch.setenv("TRUTHWEAVE_REPO_ROOT", str(tmp_path))
+    monkeypatch.setattr("truthweave.cli.shutil.which", lambda _: "/usr/bin/true")
+    monkeypatch.setattr("truthweave.cli.subprocess.run", lambda *args, **kwargs: None)
+
+    with pytest.raises(SystemExit):
+        build_paper_command("paper1")
