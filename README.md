@@ -94,16 +94,15 @@ uv run truthweave check --paper example
 uv run truthweave benchmark-contracts --format md
 ```
 
-## Overview
+## Repository Layout
 
-TruthWeave enforces a structured workflow for academic paper writing:
+TruthWeave keeps the research contract, generated assets, and verification outputs in one repository-native layout:
 
-```
-Experiment (conf/exp + src/truthweave/experiments)
-  -> runs/
-  -> artifacts/
+```text
+brief.yml / references.yml / data_sources.yml / evidence.yml
+  -> runs/ + artifacts/
   -> papers/<paper_id>/auto
-  -> PDF
+  -> reviewer packet + verification report + PDF
 ```
 
 ### Included Demo Papers
@@ -139,7 +138,7 @@ Conference-specific `.cls`/`.sty` files should be placed in `papers/<paper_id>/s
 uv run truthweave create-exp <exp_name>
 ```
 
-**AI Collaboration Template** (restrict editable files):
+**AI Collaboration Contract** (restrict editable files):
 
 ```
 This repository has a fixed structure.
@@ -339,26 +338,20 @@ uv run truthweave check --paper <paper_id> --mode ci
 | Structure check fail | Repository layout violation | Use scaffolding commands to restructure |
 | Manual inline numbers detected | Hardcoded numbers in `.tex` | Replace with macros or append `% truthweave-allow-number` |
 
-## Paper Workflow
+## Repository Contract
 
-- Papers live under `papers/<paper_id>/` with a `truthweave.yml` configuration
-- `brief.yml` is the canonical source of claim IDs and phase status
-- `brief.yml` may also select `research_profile` plus minimal domain declarations such as `evaluation_protocol` and `baselines`
-- `data_sources.yml` records admissible data acquisition and provenance state for each declared source ID
-- `evidence.yml` binds each claim ID to concrete evidence objects
-- `truthweave discover` scans for `truthweave.yml` and writes `artifacts/manifests/papers_index.json`
-- `truthweave build-paper-assets --paper <paper_id>` writes `papers/<paper_id>/auto/variables.tex` and `papers/<paper_id>/auto/MANIFEST.json`
-- `truthweave provenance-report --paper <paper_id>` writes `artifacts/provenance/<paper_id>/provenance_ledger.json`
-- `truthweave claim-report --paper <paper_id>` writes `artifacts/claims/<paper_id>/claim_ledger.json`
-- `truthweave reviewer-packet --paper <paper_id>` writes `artifacts/packets/<paper_id>/packet.json` plus human-readable exports
-- `truthweave verification-report --paper <paper_id>` writes `artifacts/verification/<paper_id>/verification_report.json`
-- `truthweave verify-paper --paper <paper_id>` runs deterministic claim verification and exits nonzero when required verification targets fail
-- `truthweave profile-report --paper <paper_id>` writes `artifacts/profiles/<paper_id>/profile_report.json`
-- `truthweave benchmark-contracts` writes `artifacts/benchmarks/benchmark_report.json`
-- `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine in `truthweave.yml`
-- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make profile PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`, `make benchmarks`, `make exemplars`
+- Papers live under `papers/<paper_id>/` with `truthweave.yml`, `brief.yml`, `references.yml`, `data_sources.yml`, and `evidence.yml`.
+- `brief.yml` is the canonical source of claim IDs, workflow phase state, and optional `research_profile`.
+- `data_sources.yml` records admissible source acquisition and provenance state for declared `source_id` values.
+- `evidence.yml` binds each claim to concrete repo artifacts, generated values, manifests, and verification metadata.
+- `truthweave discover` writes `artifacts/manifests/papers_index.json`.
+- `truthweave build-paper-assets --paper <paper_id>` writes `papers/<paper_id>/auto/variables.tex` and `papers/<paper_id>/auto/MANIFEST.json`.
+- `truthweave provenance-report`, `claim-report`, `reviewer-packet`, `verification-report`, and `profile-report` write the corresponding ledgers and human-readable exports under `artifacts/`.
+- `truthweave verify-paper --paper <paper_id>` enforces deterministic claim verification and exits nonzero when required verification targets fail.
+- `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine declared in `truthweave.yml`.
+- Make targets include `make assets`, `make refs`, `make provenance`, `make profile`, `make claims`, `make review`, `make packet`, `make verify`, `make paper`, `make benchmarks`, and `make exemplars`.
 
-## Workflow Summary: Canonical Paper Flow
+## Canonical Paper Flow
 
 1. `uv run truthweave create-paper mypaper`
 2. Fill `brief.yml`, optionally select `research_profile`, and run `uv run truthweave validate-brief --paper mypaper`
@@ -388,7 +381,7 @@ uv run truthweave check --paper <paper_id> --mode ci
 
 This corpus is the main regression harness for domain-policy evolution. If a profile rule changes intentionally, update the relevant expectation file and keep the case minimal and explicit.
 
-## Workflow Summary: Add Experiment
+## Add Experiment Workflow
 
 1. `uv run truthweave create-exp myexp`
 2. Ask AI to edit ONLY the created files
@@ -396,13 +389,13 @@ This corpus is the main regression harness for domain-policy evolution. If a pro
 4. `uv run truthweave approve-phase --paper <paper_id> --phase experiment_ready`
 5. `uv run truthweave run exp=myexp`
 
-## Workflow Summary: Add Analysis
+## Add Analysis Workflow
 
 1. `uv run truthweave create-analysis my_analysis`
 2. Ask AI to edit ONLY the created file
 3. `make analysis NAME=my_analysis`
 
-## Workflow Summary: Add Dataset
+## Add Dataset Workflow
 
 1. `uv run truthweave create-dataset mydata`
 2. Place raw files into `data/raw/mydata/`
@@ -442,21 +435,9 @@ To add or modify skills:
 
 See [AGENTS.md](AGENTS.md) for the agent contract and editing constraints.
 
-## AI Prompt Template
+## AI Collaboration Note
 
-When collaborating with AI agents:
-
-```
-You are editing this repo.
-Allowed files to edit:
-- <list paths from scaffold output>
-Do not create new directories; CI will fail.
-```
-
-## Check Modes
-
-- `truthweave check` defaults to **dev mode** (STRUCTURE/PAPER_NUMBERS warn only)
-- `truthweave check --mode ci` treats STRUCTURE/PAPER_NUMBERS as failures
+When collaborating with AI agents, pass the scaffolded file list or refer the agent to [AGENTS.md](AGENTS.md). The default contract is to edit only explicitly allowed files and never hand-edit generated outputs under `papers/<paper_id>/auto/`.
 
 ## Multi-Paper Workflow (Fastest Path)
 

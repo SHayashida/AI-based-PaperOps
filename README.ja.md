@@ -1,22 +1,95 @@
-# TruthWeave Template v1
+# TruthWeave
 
 [![CI](https://github.com/SHayashida/TruthWeave/actions/workflows/ci.yml/badge.svg)](https://github.com/SHayashida/TruthWeave/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-学術論文のための再現可能な研究ワークフローテンプレート。実験のトレーサビリティ、論文メトリクスの自動同期、手動での数値更新漏れの防止を実現します。
+**追跡可能な主張、許容可能なソース、実行可能な検証経路を扱うための、監査可能な研究プロダクションシステム。**
+
+TruthWeave は論文リポジトリを audit spine に変えます。`brief.yml` に研究意図を置き、`data_sources.yml` に出典許容性を置き、`evidence.yml` に claim と artifact の結び付きを置き、reviewer packet と deterministic な verification 出力まで同じリポジトリ内で管理します。目的は、自律生成ではなく、検査・再実行・引き継ぎができる研究ワークフローを作ることです。
+
+[`ショーケース動画を見る`](docs/assets/truthweave-showcase.mp4) · [`最初に見る場所`](#最初に見る場所) · [`Finance exemplar`](papers/finance_exemplar/) · [`Formal methods exemplar`](papers/formal_methods_exemplar/) · [`Resume guide`](docs/TRUTHWEAVE_RESUME_GUIDE.md)
+
+<p align="center">
+  <a href="docs/assets/truthweave-showcase.mp4">
+    <img src="docs/assets/truthweave-showcase.png" alt="TruthWeave showcase concept preview" width="960" />
+  </a>
+</p>
+<p align="center">
+  <sub>ショーケース用の concept preview です。画像をクリックすると短い動画を開きます。</sub>
+</p>
+<p align="center">
+  <sub>Audit spine • provenance gate • reviewer packet • verification harness • domain profiles</sub>
+</p>
 
 [English README is here](README.md)
+
+## TruthWeave とは
+
+TruthWeave は、ワンプロンプトで論文を自律生成するためのツールではありません。何を主張したのか、どのソースが admissible なのか、どの evidence に紐づくのか、レビュー時に何を見るべきか、主要 claim をどう replay するのかを、明示的な contract として扱うためのシステムです。
+
+## なぜ TruthWeave が必要か
+
+多くの AI 論文ワークフローは autonomy を優先します。TruthWeave は **最大限の自律性ではなく、admissibility と verification を優先** します。traceable claims、source provenance、deterministic checks、reviewer-facing packet、実行可能な verification path、domain-specific policy enforcement を、属人的な運用ではなくリポジトリの中に残すためです。
+
+## Canonical Workflow
+
+```text
+brief -> refs -> provenance -> claims -> review -> packet -> verification -> build
+```
+
+この流れにより、論文本文、証拠、再実行経路を prose だけの引き継ぎにせず、同じ audit trail 上で揃えられます。
+
+## 最初に見る場所
+
+プロダクトの価値を最短で理解するなら、まず次を見てください。
+
+- **benchmark / failure corpus**: [`benchmarks/cases/`](benchmarks/cases/) と [`artifacts/benchmarks/benchmark_report.md`](artifacts/benchmarks/benchmark_report.md)。positive case、negative case、blocked shortcut を executable contract test として確認できます。
+- **finance exemplar**: [`papers/finance_exemplar/`](papers/finance_exemplar/)、[`packet.md`](artifacts/packets/finance_exemplar/packet.md)、[`verification_report.md`](artifacts/verification/finance_exemplar/verification_report.md)。時間分割、admissibility rule、packet export、verification path を持つ finance ML workflow の実例です。
+- **formal methods exemplar**: [`papers/formal_methods_exemplar/`](papers/formal_methods_exemplar/)、[`packet.md`](artifacts/packets/formal_methods_exemplar/packet.md)、[`verification_report.md`](artifacts/verification/formal_methods_exemplar/verification_report.md)。proof bundle 宣言と exact/file-presence verification の実例です。
+- **resume / development guide**: [`docs/TRUTHWEAVE_RESUME_GUIDE.md`](docs/TRUTHWEAVE_RESUME_GUIDE.md)。 contributor や coding agent が途中再開・引き継ぎを行うための正本ガイドです。
+
+まず 1 つ実行するなら、`uv run truthweave benchmark-contracts --format md` または `make exemplars` が最短です。
+
+## Built-in Profiles
+
+TruthWeave には `finance_ml`、`formal_methods`、`simulation_abm` の built-in profile があります。これらは domain ごとの admissibility rule、forbidden substitute、必須宣言、評価要件、verification expectation を強制し、同じワークフローに異なる研究 contract を載せられるようにします。
+
+## 何が「既に動く」証拠か
+
+このリポジトリには、構想だけではなく、価値を確認できる具体資産が既に入っています。
+
+- [`benchmarks/cases/`](benchmarks/cases/) 配下の deterministic benchmark corpus
+- [`artifacts/packets/`](artifacts/packets/) 配下の reviewer packet export
+- [`artifacts/verification/`](artifacts/verification/) 配下の verification harness と replay 出力
+- [`papers/finance_exemplar/`](papers/finance_exemplar/) と [`papers/formal_methods_exemplar/`](papers/formal_methods_exemplar/) の canonical exemplars
+- [`artifacts/profiles/`](artifacts/profiles/) 配下の profile report
+
+## 誰のためのものか
+
+TruthWeave は、再現性、監査可能な claims、研究 contract、domain-valid な evidence、引き継ぎ可能な paper workflow を重視する研究者・研究チーム・エンジニアリング寄りの論文運用向けです。ワンプロンプトの自律論文生成だけを求める用途が主眼ではありません。
 
 ## クイックスタート
 
 ```bash
 uv sync
+uv run truthweave validate-brief --paper example
+uv run truthweave validate-profile --paper example
+uv run truthweave validate-provenance --paper example
 uv run truthweave run exp=example
 uv run truthweave discover
 uv run truthweave build-paper-assets --paper example
+uv run truthweave sync-refs --paper example
+uv run truthweave validate-evidence --paper example
+uv run truthweave provenance-report --paper example --format md
+uv run truthweave claim-report --paper example --format md
+uv run truthweave review-thread --paper example --phase draft_reviewed --format md
+uv run truthweave reviewer-packet --paper example --format md
+uv run truthweave verify-paper --paper example --format md
+uv run truthweave profile-report --paper example --format md
 uv run truthweave check --paper example
+uv run truthweave benchmark-contracts --format md
 ```
 
 ## 概要
@@ -31,17 +104,20 @@ Experiment (conf/exp + src/truthweave/experiments)
   -> PDF
 ```
 
-### サンプルpaperが2つある理由
+### 同梱されている4つのデモ paper
 
-このテンプレートは、役割の異なる2つのサンプルpaperを意図的に同梱しています。
+このリポジトリには、役割の異なる 4 つの paper が意図的に同梱されています。
 
-- `example`: クイックスタートで使う最小の単一paperサンプル
-- `demo_paper`: 複数paper運用（`discover`、Makefileの `*-all` ターゲット、paper横断チェック）を確認するための2本目
+- `example`: クイックスタートで使う最小の単一 paper サンプル
+- `demo_paper`: 複数 paper 運用（`discover`、Makefile の `*-all` ターゲット、paper 横断チェック）を確認するための軽量サンプル
+- `finance_exemplar`: 明示的な temporal protocol、baseline、admissibility 宣言、packet export、verification target を含む finance ML profile デモ
+- `formal_methods_exemplar`: proof bundle 宣言、exact-match / file-presence verification、packet export、profile enforcement を含む formal methods profile デモ
 
-2つを同梱することで、クローン直後に次の両方を検証できます。
+4 つを同梱することで、次の 3 つをすぐ確認できます。
 
-1. 単一paperの導入フロー（`--paper example`）
-2. 複数paperの運用フロー（`make assets-all`、`make paper-all`、`make check-all`）
+1. 単一 paper の導入フロー（`--paper example`）
+2. 複数 paper の運用フロー（`make assets-all`、`make check-all`）
+3. profile-specific exemplar の参照導線（`make exemplars`）
 
 ## 主要ワークフロー
 
