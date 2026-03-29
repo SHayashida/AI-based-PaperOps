@@ -496,6 +496,15 @@ def run_command(overrides: list[str]) -> None:
                 f"Experiment run blocked by provenance issues for {paper_id}:\n- "
                 + "\n- ".join(provenance_blockers)
             )
+    experiment_cls = get_experiment_class(experiment_name)
+    experiment = experiment_cls(cfg, run_dir)
+
+    runner = ExperimentRunner(cfg, run_dir, experiment)
+    runner.run()
+    for paper_id in approved_papers:
+        _build_paper_assets(paper_id)
+        paper = get_paper_by_id(repo_root, paper_id)
+        paper_dir = repo_root / paper["path"]
         profile_report = build_profile_report(
             repo_root, paper_dir, paper_id, write_output=False
         )
@@ -507,11 +516,6 @@ def run_command(overrides: list[str]) -> None:
                 f"Experiment run blocked by profile policy issues for {paper_id}:\n- "
                 + "\n- ".join(profile_blockers)
             )
-    experiment_cls = get_experiment_class(experiment_name)
-    experiment = experiment_cls(cfg, run_dir)
-
-    runner = ExperimentRunner(cfg, run_dir, experiment)
-    runner.run()
 
 
 def discover_command() -> None:
