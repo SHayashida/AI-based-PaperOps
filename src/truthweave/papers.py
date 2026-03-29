@@ -27,7 +27,10 @@ def _default_paper_config() -> dict[str, Any]:
             "argument": {
                 "min_claim_support_ci": 1.0,
                 "max_orphan_metrics_dev": 0,
-            }
+            },
+            "thread": {
+                "min_alignment_ci": 0.6,
+            },
         },
     }
 
@@ -95,4 +98,4 @@ def get_paper_by_id(repo_root: Path, paper_id: str) -> dict[str, Any]:
     for paper in manifest["papers"]:
         if paper["paper_id"] == paper_id:
             return paper
-    raise SystemExit(f"Unknown paper_id '{paper_id}'. Run paperops discover.")
+    raise SystemExit(f"Unknown paper_id '{paper_id}'. Run truthweave discover.")

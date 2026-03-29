@@ -1,0 +1,35 @@
+paper_id: demo_paper
+phase_status: release_ready
+central_claim: TruthWeave can carry a single experimental metric into a paper draft with auditability.
+so_what: This demonstrates a practical paper pipeline with explicit thesis and evidence gates.
+novelty: The workflow ties paper planning, evidence, and checks together in one repository.
+target_reader: Researchers evaluating reproducible paper operations tooling.
+key_questions:
+  - Does the paper stay anchored to one central claim from plan to draft?
+expected_source_ids:
+  - example_simulated_data
+planned_evidence:
+  - claim_id: demo_claim
+    required: true
+    experiment: example
+    description: The demo paper uses the example experiment metric as direct evidence.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - example_simulated_data
+    prohibited_substitutes: []
+non_goals:
+  - Autonomous approval without a human checkpoint.
+phase_history:
+  - phase: idea_locked
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Initial sample brief.
+  - phase: experiment_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper is ready to run.
+  - phase: draft_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper reviewed for release.
+  - phase: release_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper released.

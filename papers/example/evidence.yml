@@ -1,0 +1,18 @@
+paper_id: example
+claims:
+  - claim_id: main_claim
+    status: supported
+    note: The main claim is backed by the generated metric macro and the manifest's source metrics path.
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - example_simulated_data
+        note: Metric used directly in the paper text.
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - example_simulated_data
+        note: Provenance pointer to the concrete metrics artifact used for paper assets.

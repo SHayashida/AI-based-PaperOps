@@ -1,0 +1,35 @@
+paper_id: example
+phase_status: release_ready
+central_claim: TruthWeave keeps experiment metrics traceable into paper claims.
+so_what: Researchers can inspect whether each quantitative statement is backed by generated evidence.
+novelty: The workflow couples reproducible runs with paper-facing argument checks.
+target_reader: ML systems researchers building reproducible research pipelines.
+key_questions:
+  - Can a paper claim be traced back to generated metrics?
+expected_source_ids:
+  - example_simulated_data
+planned_evidence:
+  - claim_id: main_claim
+    required: true
+    experiment: example
+    description: The example experiment emits MetricMean and the paper cites it directly.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - example_simulated_data
+    prohibited_substitutes: []
+non_goals:
+  - Fully autonomous paper writing without human approval.
+phase_history:
+  - phase: idea_locked
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Initial sample brief.
+  - phase: experiment_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper is ready to run.
+  - phase: draft_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper reviewed for release.
+  - phase: release_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Sample paper released.

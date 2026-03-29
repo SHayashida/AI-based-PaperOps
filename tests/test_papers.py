@@ -34,7 +34,11 @@ def test_create_paper_creates_structure() -> None:
     try:
         paper_dir = PAPERS_DIR / paper_id
         assert (paper_dir / "truthweave.yml").exists()
+        assert (paper_dir / "brief.yml").exists()
+        assert (paper_dir / "evidence.yml").exists()
+        assert (paper_dir / "data_sources.yml").exists()
         assert (paper_dir / "main.tex").exists()
+        assert (paper_dir / "references.yml").exists()
         assert (paper_dir / "refs.bib").exists()
         assert (paper_dir / "styles" / ".gitkeep").exists()
         cfg = load_paper_config(paper_dir / "truthweave.yml")
@@ -72,6 +76,102 @@ def test_create_paper_clone() -> None:
         "inputs": {"metrics_source": "latest"},
     }
     OmegaConf.save(OmegaConf.create(config), base_dir / "truthweave.yml")
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "paper_id": base_id,
+                "phase_status": "release_ready",
+                "central_claim": "c",
+                "so_what": "s",
+                "novelty": "n",
+                "target_reader": "t",
+                "key_questions": ["k"],
+                "expected_source_ids": ["base_source"],
+                "planned_evidence": [
+                    {
+                        "claim_id": "main_claim",
+                        "required": True,
+                        "experiment": "example",
+                        "description": "d",
+                        "source_ids": ["base_source"],
+                        "prohibited_substitutes": [],
+                    }
+                ],
+                "non_goals": ["x"],
+            }
+        ),
+        base_dir / "brief.yml",
+    )
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "paper_id": base_id,
+                "claims": [
+                    {
+                        "claim_id": "main_claim",
+                        "status": "supported",
+                        "evidence": [
+                            {
+                                "kind": "variable",
+                                "artifact_path": "auto/variables.tex",
+                                "variable": "MetricMean",
+                                "source_ids": ["base_source"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        base_dir / "evidence.yml",
+    )
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "paper_id": base_id,
+                "sources": [
+                    {
+                        "source_id": "base_source",
+                        "title": "Base synthetic source",
+                        "source_type": "synthetic",
+                        "acquisition_mode": "generated_internal",
+                        "status": "verified",
+                        "license_note": "Generated in repo",
+                        "reproducibility_level": "fully_reproducible",
+                        "pointers": [
+                            {"kind": "file", "path": "main.tex"},
+                        ],
+                        "snapshot": "base-snapshot",
+                        "note": "",
+                    }
+                ],
+            }
+        ),
+        base_dir / "data_sources.yml",
+    )
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "paper_id": base_id,
+                "sources": [
+                    {
+                        "key": "example2024",
+                        "query": "Example Reference",
+                        "ids": {},
+                        "intent": "background",
+                        "required": True,
+                        "metadata": {
+                            "entry_type": "article",
+                            "title": "Example Reference",
+                            "authors": ["Doe, Jane"],
+                            "venue": "Journal of Examples",
+                            "year": "2024",
+                        },
+                    }
+                ],
+            }
+        ),
+        base_dir / "references.yml",
+    )
     (base_dir / "main.tex").write_text("\\input{auto/variables.tex}")
     (base_dir / "refs.bib").write_text("@article{a}")
 
@@ -80,6 +180,10 @@ def test_create_paper_clone() -> None:
         new_dir = PAPERS_DIR / new_id
         assert (new_dir / "styles" / "style.sty").exists()
         assert not (new_dir / "auto" / "generated.txt").exists()
+        assert (new_dir / "brief.yml").exists()
+        assert (new_dir / "evidence.yml").exists()
+        assert (new_dir / "data_sources.yml").exists()
+        assert (new_dir / "references.yml").exists()
         cfg = load_paper_config(new_dir / "truthweave.yml")
         assert cfg["paper_id"] == new_id
     finally:

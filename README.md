@@ -13,9 +13,17 @@ Reproducible research workflow template for academic papers. Ensures experiments
 
 ```bash
 uv sync
+uv run truthweave validate-brief --paper example
+uv run truthweave validate-provenance --paper example
 uv run truthweave run exp=example
 uv run truthweave discover
 uv run truthweave build-paper-assets --paper example
+uv run truthweave sync-refs --paper example
+uv run truthweave validate-evidence --paper example
+uv run truthweave provenance-report --paper example --format md
+uv run truthweave claim-report --paper example --format md
+uv run truthweave review-thread --paper example --phase draft_reviewed --format md
+uv run truthweave reviewer-packet --paper example --format md
 uv run truthweave check --paper example
 ```
 
@@ -92,6 +100,52 @@ uv run truthweave build-paper-assets --paper <paper_id>
 
 The paper should use `\input{auto/variables.tex}` and reference macros instead of hardcoded numbers.
 
+### Claim Evidence Binding
+
+Bind each brief claim to concrete repo artifacts:
+
+```bash
+uv run truthweave scaffold-evidence --paper <paper_id>
+uv run truthweave validate-evidence --paper <paper_id>
+uv run truthweave claim-report --paper <paper_id> --format md
+```
+
+`evidence.yml` references canonical `claim_id` values from `brief.yml` and points to deterministic artifacts such as:
+- generated variables in `auto/variables.tex`
+- manifest pointers in `auto/MANIFEST.json`
+- concrete files under `runs/`, `papers/<paper_id>/figures/`, or `papers/<paper_id>/tables/`
+
+The generated claim ledger is written to `artifacts/claims/<paper_id>/claim_ledger.json`.
+
+### Data Source Provenance
+
+Declare the admissible data acquisition contract before relying on evidence:
+
+```bash
+uv run truthweave scaffold-provenance --paper <paper_id>
+uv run truthweave validate-provenance --paper <paper_id>
+uv run truthweave provenance-report --paper <paper_id> --format md
+```
+
+`data_sources.yml` is repo-local and deterministic. It records each `source_id` declared by `brief.yml`, its acquisition mode, reproducibility level, and local pointers such as files, directories, and manifest references. The generated provenance ledger is written to `artifacts/provenance/<paper_id>/provenance_ledger.json`.
+
+### Reviewer Packet Export
+
+Export a reviewer-facing trust packet that aggregates the current thesis, claims, evidence, sources, references, and reproducibility caveats:
+
+```bash
+uv run truthweave reviewer-packet --paper <paper_id> --format md
+```
+
+This writes:
+- `artifacts/packets/<paper_id>/packet.json`
+- `artifacts/packets/<paper_id>/packet.md`
+- `artifacts/packets/<paper_id>/claims.csv`
+- `artifacts/packets/<paper_id>/sources.csv`
+- `artifacts/packets/<paper_id>/rerun_checklist.md`
+
+The packet is intended for reviewers, coauthors, and future maintainers who need a compact audit bundle without reading the whole repo first.
+
 ### Building the PDF
 
 ```bash
@@ -122,16 +176,40 @@ uv run truthweave check --paper <paper_id> --mode ci
 ## Paper Workflow
 
 - Papers live under `papers/<paper_id>/` with a `truthweave.yml` configuration
+- `brief.yml` is the canonical source of claim IDs and phase status
+- `data_sources.yml` records admissible data acquisition and provenance state for each declared source ID
+- `evidence.yml` binds each claim ID to concrete evidence objects
 - `truthweave discover` scans for `truthweave.yml` and writes `artifacts/manifests/papers_index.json`
 - `truthweave build-paper-assets --paper <paper_id>` writes `papers/<paper_id>/auto/variables.tex` and `papers/<paper_id>/auto/MANIFEST.json`
+- `truthweave provenance-report --paper <paper_id>` writes `artifacts/provenance/<paper_id>/provenance_ledger.json`
+- `truthweave claim-report --paper <paper_id>` writes `artifacts/claims/<paper_id>/claim_ledger.json`
+- `truthweave reviewer-packet --paper <paper_id>` writes `artifacts/packets/<paper_id>/packet.json` plus human-readable exports
 - `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine in `truthweave.yml`
-- Make targets: `make assets PAPER=<paper_id>`, `make paper PAPER=<paper_id>`, `make assets-all`, `make paper-all`
+- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make paper PAPER=<paper_id>`
+
+## Workflow Summary: Canonical Paper Flow
+
+1. `uv run truthweave create-paper mypaper`
+2. Fill `brief.yml` and run `uv run truthweave validate-brief --paper mypaper`
+3. Declare references in `references.yml` and run `uv run truthweave sync-refs --paper mypaper`
+4. Declare required source IDs in `brief.yml` and `data_sources.yml`, then run `uv run truthweave validate-provenance --paper mypaper`
+5. Run experiments with `uv run truthweave run exp=<exp_name>`
+6. Sync paper assets with `uv run truthweave build-paper-assets --paper mypaper`
+7. Bind claims with `uv run truthweave validate-evidence --paper mypaper`
+8. Build the provenance ledger with `uv run truthweave provenance-report --paper mypaper --format md`
+9. Build the claim ledger with `uv run truthweave claim-report --paper mypaper --format md`
+10. Run `uv run truthweave review-thread --paper mypaper --phase draft_reviewed --format md`
+11. Generate the reviewer packet with `uv run truthweave reviewer-packet --paper mypaper --format md`
+12. Run `uv run truthweave check --paper mypaper --mode ci`
+13. Build the PDF with `uv run truthweave build-paper --paper mypaper`
 
 ## Workflow Summary: Add Experiment
 
 1. `uv run truthweave create-exp myexp`
 2. Ask AI to edit ONLY the created files
-3. `uv run truthweave run exp=myexp`
+3. Add or update the matching claim entry in `brief.yml`
+4. `uv run truthweave approve-phase --paper <paper_id> --phase experiment_ready`
+5. `uv run truthweave run exp=myexp`
 
 ## Workflow Summary: Add Analysis
 
@@ -199,11 +277,23 @@ Do not create new directories; CI will fail.
 
 ```bash
 uv run truthweave create-paper demo_paper
+uv run truthweave validate-brief --paper demo_paper
+uv run truthweave validate-provenance --paper demo_paper
 uv run truthweave run exp=example
 uv run truthweave build-paper-assets --paper demo_paper
+uv run truthweave sync-refs --paper demo_paper
+uv run truthweave provenance-report --paper demo_paper --format md
+uv run truthweave claim-report --paper demo_paper --format md
+uv run truthweave review-thread --paper demo_paper --phase draft_reviewed --format md
+uv run truthweave reviewer-packet --paper demo_paper --format md
 uv run truthweave build-paper --paper demo_paper
 uv run truthweave check --paper demo_paper
 make assets-all
+make refs-all
+make provenance-all
+make claims-all
+make review-all
+make packet-all
 make paper-all
 make check-all
 ```
@@ -215,4 +305,3 @@ make check-all
 ## License
 
 See [LICENSE](LICENSE) file for details.
-

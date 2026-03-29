@@ -8,7 +8,7 @@ from truthweave.checks.models import Issue
 
 def check(tex_path: Path, mode: str, paper_id: str | None) -> list[Issue]:
     if not tex_path.exists():
-        fix = "Create the paper main.tex or run paperops create-paper <paper_id>."
+        fix = "Create the paper main.tex or run truthweave create-paper <paper_id>."
         recheck = f"uv run truthweave check --mode {mode}"
         if paper_id:
             recheck += f" --paper {paper_id}"

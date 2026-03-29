@@ -1,0 +1,18 @@
+paper_id: demo_paper
+sources:
+  - key: example2024
+    query: Example Reference
+    ids:
+      doi: ""
+      arxiv: ""
+      openalex: ""
+      semantic_scholar: ""
+    intent: background
+    required: true
+    metadata:
+      entry_type: article
+      title: Example Reference
+      authors:
+        - Doe, Jane
+      venue: Journal of Examples
+      year: "2024"

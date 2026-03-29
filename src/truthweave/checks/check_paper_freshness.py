@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+from truthweave.briefs import claim_ids_from_brief, load_brief
 from truthweave.checks.models import Issue
 from truthweave.papers import load_paper_config
 from truthweave.utils import sha256_file
@@ -33,7 +34,20 @@ def _collect_dir_hashes(base_dir: Path) -> dict[str, str]:
     return hashes
 
 
-def _compute_argument_audit(tex_path: Path, variables_path: Path) -> dict[str, object]:
+def _brief_claim_ids(paper_dir: Path) -> list[str]:
+    path = paper_dir / "brief.yml"
+    if not path.exists():
+        return []
+    try:
+        brief = load_brief(path)
+    except SystemExit:
+        return []
+    return claim_ids_from_brief(brief)
+
+
+def _compute_argument_audit(
+    tex_path: Path, variables_path: Path, claim_ids: list[str]
+) -> dict[str, object]:
     defined = _extract_defined_metric_macros(variables_path)
     used = _extract_used_metric_macros(tex_path)
     supported = used & defined
@@ -47,6 +61,7 @@ def _compute_argument_audit(tex_path: Path, variables_path: Path) -> dict[str, o
         "orphan_metrics": len(orphan),
         "unsupported_macros": unsupported,
         "orphan_macros": orphan,
+        "claim_ids": claim_ids,
     }
 
 
@@ -160,7 +175,9 @@ def check(repo_root: Path, paper_dir: Path, paper_id: str, mode: str) -> list[Is
     tex_path = paper_dir / config.get("main", "main.tex")
     variables_path = auto_dir / "variables.tex"
     expected_argument_audit = generated.get("argument_audit")
-    actual_argument_audit = _compute_argument_audit(tex_path, variables_path)
+    actual_argument_audit = _compute_argument_audit(
+        tex_path, variables_path, _brief_claim_ids(paper_dir)
+    )
     if not isinstance(expected_argument_audit, dict):
         fix = f"uv run truthweave build-paper-assets --paper {paper_id}"
         recheck = f"uv run truthweave check --paper {paper_id} --mode {mode}"

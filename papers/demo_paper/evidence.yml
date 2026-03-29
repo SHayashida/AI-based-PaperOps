@@ -1,0 +1,18 @@
+paper_id: demo_paper
+claims:
+  - claim_id: demo_claim
+    status: supported
+    note: The demo claim is bound to the generated metric and its manifest provenance.
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - example_simulated_data
+        note: Metric used directly in the sample paper text.
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - example_simulated_data
+        note: Provenance pointer to the metrics artifact that generated the paper assets.

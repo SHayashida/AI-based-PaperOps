@@ -19,5 +19,15 @@ jobs:
         run: make run
       - name: Build assets
         run: make assets-all
+      - name: Sync references
+        run: make refs-all
+      - name: Build provenance ledger
+        run: make provenance-all
+      - name: Build claim ledger
+        run: make claims-all
+      - name: Review thread
+        run: make review-all
+      - name: Build reviewer packet
+        run: make packet-all
       - name: Check
         run: uv run truthweave check --mode ci

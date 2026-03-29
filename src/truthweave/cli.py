@@ -13,15 +13,60 @@ from typing import Any
 import hydra
 from omegaconf import OmegaConf
 
+from truthweave.briefs import (
+    PHASES,
+    approve_phase,
+    brief_path,
+    claim_ids_from_brief,
+    default_brief,
+    experiments_for_brief,
+    load_brief,
+    phase_at_least,
+    save_brief,
+    validate_brief_data,
+)
 from truthweave.checks import (
+    check_brief,
+    check_claim_evidence,
     check_no_manual_numbers,
+    check_packet,
     check_paper_freshness,
+    check_provenance,
+    check_references,
+    check_review,
     check_run_integrity,
     check_structure,
 )
 from truthweave.checks.models import Issue
+from truthweave.evidence import (
+    build_claim_ledger,
+    default_evidence,
+    evidence_path,
+    load_evidence,
+    render_claim_report,
+    save_evidence,
+    validate_evidence_data,
+)
 from truthweave.papers import get_paper_by_id, load_paper_config, write_discovery_manifest
+from truthweave.packet import build_reviewer_packet, render_packet
+from truthweave.provenance import (
+    build_provenance_ledger,
+    default_provenance,
+    load_provenance,
+    provenance_path,
+    render_provenance_report,
+    save_provenance,
+    validate_provenance_data,
+)
+from truthweave.references import (
+    default_references,
+    load_references,
+    references_path,
+    sync_references,
+    verify_references,
+)
 from truthweave.registry import get_experiment_class
+from truthweave.reviews import build_thread_review, render_review_markdown
 from truthweave.runner import ExperimentRunner
 from truthweave.utils import ensure_dir, find_latest_run, sha256_file, write_json
 
@@ -111,6 +156,76 @@ def _resolve_metrics_source(repo_root: Path, metrics_source: str | None) -> Path
     return run_dir
 
 
+def _emit_issues(issues: list[Issue], fail_in_ci: bool = True) -> None:
+    warn_count = sum(1 for issue in issues if issue.severity == "WARN")
+    fail_count = sum(1 for issue in issues if issue.severity == "FAIL")
+    for issue in issues:
+        print(_format_issue(issue))
+    print(f"Summary: WARN={warn_count} FAIL={fail_count}")
+    if fail_in_ci and fail_count:
+        raise SystemExit(1)
+
+
+def _approved_briefs_for_experiment(repo_root: Path, experiment_name: str) -> list[str]:
+    manifest = write_discovery_manifest(repo_root)
+    papers = json.loads(manifest.read_text()).get("papers", [])
+    approved: list[str] = []
+    for paper in papers:
+        paper_id = paper["paper_id"]
+        paper_dir = repo_root / paper["path"]
+        path = brief_path(paper_dir)
+        if not path.exists():
+            continue
+        brief = load_brief(path)
+        if validate_brief_data(brief):
+            continue
+        if not phase_at_least(str(brief.get("phase_status")), "experiment_ready"):
+            continue
+        if experiment_name in experiments_for_brief(brief):
+            approved.append(paper_id)
+    return approved
+
+
+def _claim_ledger_blockers(ledger: dict[str, Any]) -> list[str]:
+    validation = ledger.get("validation", {})
+    blockers: list[str] = []
+    for field in [
+        "schema_errors",
+        "required_missing",
+        "unresolved_claims",
+        "stale_claims",
+        "unsupported_major",
+        "orphan_claim_ids",
+    ]:
+        values = validation.get(field, [])
+        if isinstance(values, list) and values:
+            blockers.append(f"{field}={', '.join(str(value) for value in values)}")
+    return blockers
+
+
+def _provenance_ledger_blockers(
+    ledger: dict[str, Any], *, include_claim_gaps: bool
+) -> list[str]:
+    validation = ledger.get("validation", {})
+    blockers: list[str] = []
+    fields = [
+        "schema_errors",
+        "missing_required_sources",
+        "unresolved_sources",
+        "unavailable_sources",
+        "stale_sources",
+        "policy_violations",
+        "forbidden_substitutes",
+    ]
+    if include_claim_gaps:
+        fields.append("claim_provenance_gaps")
+    for field in fields:
+        values = validation.get(field, [])
+        if isinstance(values, list) and values:
+            blockers.append(f"{field}={', '.join(str(value) for value in values)}")
+    return blockers
+
+
 def _build_paper_assets(paper_id: str) -> None:
     repo_root = _repo_root()
     paper = get_paper_by_id(repo_root, paper_id)
@@ -145,6 +260,10 @@ def _build_paper_assets(paper_id: str) -> None:
     unsupported = sorted(used - defined)
     orphan = sorted(defined - used)
     claim_support = 1.0 if not used else len(supported) / len(used)
+    claim_ids: list[str] = []
+    brief_file = brief_path(paper_dir)
+    if brief_file.exists():
+        claim_ids = claim_ids_from_brief(load_brief(brief_file))
 
     manifest = {
         "source": {
@@ -169,6 +288,7 @@ def _build_paper_assets(paper_id: str) -> None:
                 "orphan_metrics": len(orphan),
                 "unsupported_macros": unsupported,
                 "orphan_macros": orphan,
+                "claim_ids": claim_ids,
             },
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
@@ -180,6 +300,37 @@ def _build_paper(paper_id: str) -> None:
     repo_root = _repo_root()
     paper = get_paper_by_id(repo_root, paper_id)
     paper_dir = repo_root / paper["path"]
+    brief_file = brief_path(paper_dir)
+    if not brief_file.exists():
+        raise SystemExit(
+            f"Missing brief.yml for {paper_id}. Run: uv run truthweave validate-brief --paper {paper_id}"
+        )
+    brief = load_brief(brief_file)
+    errors = validate_brief_data(brief)
+    if errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(errors))
+    if not phase_at_least(str(brief.get("phase_status")), "draft_reviewed"):
+        raise SystemExit(
+            f"Paper {paper_id} must be at least draft_reviewed before build-paper. "
+            f"Current phase: {brief.get('phase_status')}"
+        )
+    ledger = build_claim_ledger(repo_root, paper_dir, paper_id, write_output=False)
+    blockers = _claim_ledger_blockers(ledger)
+    if blockers:
+        raise SystemExit(
+            "Paper build blocked by claim-evidence issues:\n- " + "\n- ".join(blockers)
+        )
+    provenance_ledger = build_provenance_ledger(
+        repo_root, paper_dir, paper_id, write_output=False
+    )
+    provenance_blockers = _provenance_ledger_blockers(
+        provenance_ledger, include_claim_gaps=True
+    )
+    if provenance_blockers:
+        raise SystemExit(
+            "Paper build blocked by provenance issues:\n- "
+            + "\n- ".join(provenance_blockers)
+        )
     config = load_paper_config(paper_dir / "truthweave.yml")
     main_path = paper_dir / config["main"]
     if not main_path.exists():
@@ -199,8 +350,7 @@ def _build_paper(paper_id: str) -> None:
             "latexmk",
             *latexmk_args,
             "-halt-on-error",
-            "-output-directory",
-            str(output_dir),
+            f"-outdir={output_dir}",
             str(main_path),
         ]
     elif engine in {"pdflatex", "xelatex"}:
@@ -269,12 +419,45 @@ def _build_paper_assets_legacy() -> None:
 
 
 def run_command(overrides: list[str]) -> None:
-    from paperops import experiments  # noqa: F401
+    from truthweave import experiments  # noqa: F401
 
     cfg = _load_config(overrides)
     run_dir = _resolve_run_dir(cfg)
 
     experiment_name = cfg.experiment.name
+    approved_papers = _approved_briefs_for_experiment(_repo_root(), experiment_name)
+    if not approved_papers:
+        raise SystemExit(
+            "No paper brief in phase experiment_ready or above references "
+            f"experiment '{experiment_name}'. Add it to papers/<paper_id>/brief.yml "
+            "planned_evidence and approve the phase first."
+        )
+    repo_root = _repo_root()
+    for paper_id in approved_papers:
+        paper = get_paper_by_id(repo_root, paper_id)
+        paper_dir = repo_root / paper["path"]
+        provenance_ledger = build_provenance_ledger(
+            repo_root, paper_dir, paper_id, write_output=False
+        )
+        validation = provenance_ledger.get("validation", {})
+        provenance_blockers: list[str] = []
+        for field in [
+            "schema_errors",
+            "missing_required_sources",
+            "unavailable_sources",
+            "policy_violations",
+            "forbidden_substitutes",
+        ]:
+            values = validation.get(field, [])
+            if isinstance(values, list) and values:
+                provenance_blockers.append(
+                    f"{field}={', '.join(str(value) for value in values)}"
+                )
+        if provenance_blockers:
+            raise SystemExit(
+                f"Experiment run blocked by provenance issues for {paper_id}:\n- "
+                + "\n- ".join(provenance_blockers)
+            )
     experiment_cls = get_experiment_class(experiment_name)
     experiment = experiment_cls(cfg, run_dir)
 
@@ -328,9 +511,15 @@ def check_command(paper_id: str | None, mode: str) -> None:
         paper = get_paper_by_id(repo_root, paper_id)
         paper_dir = repo_root / paper["path"]
         config = load_paper_config(paper_dir / "truthweave.yml")
+        issues.extend(check_brief.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_claim_evidence.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_packet.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_provenance.check(repo_root, paper_dir, paper_id, mode))
         issues.extend(
             check_paper_freshness.check(repo_root, paper_dir, paper_id, mode)
         )
+        issues.extend(check_review.check(repo_root, paper_dir, paper_id, mode))
+        issues.extend(check_references.check(repo_root, paper_dir, paper_id, mode))
         tex_path = paper_dir / config.get("main", "main.tex")
         issues.extend(check_no_manual_numbers.check(tex_path, mode, paper_id))
     else:
@@ -339,9 +528,15 @@ def check_command(paper_id: str | None, mode: str) -> None:
         for paper in data.get("papers", []):
             pid = paper["paper_id"]
             paper_dir = repo_root / paper["path"]
+            issues.extend(check_brief.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_claim_evidence.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_packet.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_provenance.check(repo_root, paper_dir, pid, mode))
             issues.extend(
                 check_paper_freshness.check(repo_root, paper_dir, pid, mode)
             )
+            issues.extend(check_review.check(repo_root, paper_dir, pid, mode))
+            issues.extend(check_references.check(repo_root, paper_dir, pid, mode))
             config = load_paper_config(paper_dir / "truthweave.yml")
             tex_path = paper_dir / config.get("main", "main.tex")
             issues.extend(check_no_manual_numbers.check(tex_path, mode, pid))
@@ -350,14 +545,177 @@ def check_command(paper_id: str | None, mode: str) -> None:
         if legacy_main.exists():
             issues.extend(check_no_manual_numbers.check(legacy_main, mode, None))
 
-    warn_count = sum(1 for issue in issues if issue.severity == "WARN")
-    fail_count = sum(1 for issue in issues if issue.severity == "FAIL")
-    for issue in issues:
-        print(_format_issue(issue))
+    _emit_issues(issues)
 
-    print(f"Summary: WARN={warn_count} FAIL={fail_count}")
-    if fail_count:
-        print("CI will fail")
+
+def validate_brief_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    path = brief_path(repo_root / paper["path"])
+    if not path.exists():
+        raise SystemExit(f"Missing brief.yml for {paper_id}: {path}")
+    brief = load_brief(path)
+    errors = validate_brief_data(brief)
+    if errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(errors))
+    print(f"brief.yml is valid for {paper_id}")
+
+
+def scaffold_evidence_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    brief = load_brief(brief_path(paper_dir))
+    errors = validate_brief_data(brief)
+    if errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(errors))
+    path = evidence_path(paper_dir)
+    if path.exists():
+        raise SystemExit(f"evidence.yml already exists for {paper_id}: {path}")
+    save_evidence(path, default_evidence(paper_id, brief))
+    print(f"Created {path}")
+    _print_allowed_files(repo_root, [str(path)])
+
+
+def scaffold_provenance_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    brief = load_brief(brief_path(paper_dir))
+    errors = validate_brief_data(brief)
+    if errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(errors))
+    path = provenance_path(paper_dir)
+    if path.exists():
+        raise SystemExit(f"data_sources.yml already exists for {paper_id}: {path}")
+    save_provenance(path, default_provenance(paper_id, brief))
+    print(f"Created {path}")
+    _print_allowed_files(repo_root, [str(path)])
+
+
+def validate_evidence_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    brief = load_brief(brief_path(paper_dir))
+    brief_errors = validate_brief_data(brief)
+    if brief_errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(brief_errors))
+    path = evidence_path(paper_dir)
+    if not path.exists():
+        raise SystemExit(f"Missing evidence.yml for {paper_id}: {path}")
+    evidence = load_evidence(path)
+    errors = validate_evidence_data(evidence, brief)
+    ledger = build_claim_ledger(repo_root, paper_dir, paper_id, write_output=False)
+    blockers = _claim_ledger_blockers(ledger)
+    if errors or blockers:
+        messages = [*errors, *blockers]
+        raise SystemExit("Invalid evidence.yml:\n- " + "\n- ".join(messages))
+    print(f"evidence.yml is valid for {paper_id}")
+
+
+def validate_provenance_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    brief = load_brief(brief_path(paper_dir))
+    brief_errors = validate_brief_data(brief)
+    if brief_errors:
+        raise SystemExit("Invalid brief.yml:\n- " + "\n- ".join(brief_errors))
+    path = provenance_path(paper_dir)
+    if not path.exists():
+        raise SystemExit(f"Missing data_sources.yml for {paper_id}: {path}")
+    provenance = load_provenance(path)
+    errors = validate_provenance_data(provenance, brief)
+    ledger = build_provenance_ledger(repo_root, paper_dir, paper_id, write_output=False)
+    blockers = _provenance_ledger_blockers(ledger, include_claim_gaps=True)
+    if errors or blockers:
+        messages = [*errors, *blockers]
+        raise SystemExit("Invalid data_sources.yml:\n- " + "\n- ".join(messages))
+    print(f"data_sources.yml is valid for {paper_id}")
+
+
+def claim_report_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    ledger = build_claim_ledger(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_claim_report(ledger, output_format), end="")
+
+
+def provenance_report_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    ledger = build_provenance_ledger(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_provenance_report(ledger, output_format), end="")
+
+
+def reviewer_packet_command(paper_id: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    packet = build_reviewer_packet(repo_root, paper_dir, paper_id, write_output=True)
+    print(render_packet(packet, output_format), end="")
+
+
+def approve_phase_command(paper_id: str, phase: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    paper_dir = repo_root / paper["path"]
+    path = brief_path(paper_dir)
+    if phase_at_least(phase, "evidence_reviewed"):
+        ledger = build_claim_ledger(repo_root, paper_dir, paper_id, write_output=False)
+        blockers = _claim_ledger_blockers(ledger)
+        if blockers:
+            raise SystemExit(
+                "Cannot approve evidence_reviewed or later with claim-evidence issues:\n- "
+                + "\n- ".join(blockers)
+            )
+        provenance_ledger = build_provenance_ledger(
+            repo_root, paper_dir, paper_id, write_output=False
+        )
+        provenance_blockers = _provenance_ledger_blockers(
+            provenance_ledger, include_claim_gaps=True
+        )
+        if provenance_blockers:
+            raise SystemExit(
+                "Cannot approve evidence_reviewed or later with provenance issues:\n- "
+                + "\n- ".join(provenance_blockers)
+            )
+    brief = approve_phase(path, phase)
+    print(f"Approved {paper_id} phase: {brief['phase_status']}")
+
+
+def review_thread_command(paper_id: str, phase: str, output_format: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    review = build_thread_review(repo_root, repo_root / paper["path"], paper_id, phase)
+    if output_format == "json":
+        print(json.dumps(review, indent=2, sort_keys=True))
+    else:
+        print(render_review_markdown(review), end="")
+
+
+def sync_refs_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    lock = sync_references(repo_root, repo_root / paper["path"], paper_id)
+    print(
+        f"Synced references for {paper_id}: {len(lock['entries'])} entries -> {lock['refs_bib_path']}"
+    )
+
+
+def verify_refs_command(paper_id: str) -> None:
+    repo_root = _repo_root()
+    paper = get_paper_by_id(repo_root, paper_id)
+    messages = verify_references(repo_root, repo_root / paper["path"], paper_id)
+    if not messages:
+        print(f"Reference provenance OK for {paper_id}")
+        return
+    for message in messages:
+        print(message)
+    if any("does not match" in message or "Required reference" in message for message in messages):
         raise SystemExit(1)
 
 
@@ -429,6 +787,7 @@ def argument_audit_command(paper_id: str | None, output_format: str, mode: str) 
             "claims_count": audit.get("claims_count"),
             "unsupported_claims": audit.get("unsupported_claims"),
             "orphan_metrics": audit.get("orphan_metrics"),
+            "claim_ids": audit.get("claim_ids", []),
             "min_claim_support_ci": min_claim_support_ci,
             "max_orphan_metrics_dev": max_orphan_metrics_dev,
         }
@@ -489,6 +848,77 @@ def main() -> None:
     audit_parser.add_argument("--format", choices=["table", "json"], default="table")
     audit_parser.add_argument("--mode", choices=["dev", "ci"], default="dev")
 
+    brief_parser = subparsers.add_parser(
+        "validate-brief", help="Validate a paper brief"
+    )
+    brief_parser.add_argument("--paper", required=True)
+
+    scaffold_evidence_parser = subparsers.add_parser(
+        "scaffold-evidence", help="Create a starter evidence.yml from brief claim IDs"
+    )
+    scaffold_evidence_parser.add_argument("--paper", required=True)
+
+    scaffold_provenance_parser = subparsers.add_parser(
+        "scaffold-provenance", help="Create a starter data_sources.yml from brief source IDs"
+    )
+    scaffold_provenance_parser.add_argument("--paper", required=True)
+
+    validate_evidence_parser = subparsers.add_parser(
+        "validate-evidence", help="Validate evidence.yml against the brief and repo artifacts"
+    )
+    validate_evidence_parser.add_argument("--paper", required=True)
+
+    validate_provenance_parser = subparsers.add_parser(
+        "validate-provenance",
+        help="Validate data_sources.yml against the brief and local provenance pointers",
+    )
+    validate_provenance_parser.add_argument("--paper", required=True)
+
+    claim_report_parser = subparsers.add_parser(
+        "claim-report", help="Build a machine-readable claim ledger"
+    )
+    claim_report_parser.add_argument("--paper", required=True)
+    claim_report_parser.add_argument("--format", choices=["table", "json", "md"], default="table")
+
+    provenance_report_parser = subparsers.add_parser(
+        "provenance-report", help="Build a machine-readable provenance ledger"
+    )
+    provenance_report_parser.add_argument("--paper", required=True)
+    provenance_report_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
+    reviewer_packet_parser = subparsers.add_parser(
+        "reviewer-packet", help="Build a reviewer-facing trust packet"
+    )
+    reviewer_packet_parser.add_argument("--paper", required=True)
+    reviewer_packet_parser.add_argument(
+        "--format", choices=["table", "json", "md"], default="table"
+    )
+
+    approve_parser = subparsers.add_parser(
+        "approve-phase", help="Approve a paper phase transition"
+    )
+    approve_parser.add_argument("--paper", required=True)
+    approve_parser.add_argument("--phase", choices=PHASES, required=True)
+
+    review_parser = subparsers.add_parser(
+        "review-thread", help="Generate a thread coherence review"
+    )
+    review_parser.add_argument("--paper", required=True)
+    review_parser.add_argument("--phase", choices=PHASES, required=True)
+    review_parser.add_argument("--format", choices=["json", "md"], default="md")
+
+    sync_refs_parser = subparsers.add_parser(
+        "sync-refs", help="Generate refs.bib and reference lock data"
+    )
+    sync_refs_parser.add_argument("--paper", required=True)
+
+    verify_refs_parser = subparsers.add_parser(
+        "verify-refs", help="Verify refs.bib against reference lock data"
+    )
+    verify_refs_parser.add_argument("--paper", required=True)
+
     structure_parser = subparsers.add_parser(
         "check-structure", help="Check repository structure"
     )
@@ -532,6 +962,30 @@ def main() -> None:
         check_command(args.paper, args.mode)
     elif args.command == "audit-argument":
         argument_audit_command(args.paper, args.format, args.mode)
+    elif args.command == "validate-brief":
+        validate_brief_command(args.paper)
+    elif args.command == "scaffold-evidence":
+        scaffold_evidence_command(args.paper)
+    elif args.command == "scaffold-provenance":
+        scaffold_provenance_command(args.paper)
+    elif args.command == "validate-evidence":
+        validate_evidence_command(args.paper)
+    elif args.command == "validate-provenance":
+        validate_provenance_command(args.paper)
+    elif args.command == "claim-report":
+        claim_report_command(args.paper, args.format)
+    elif args.command == "provenance-report":
+        provenance_report_command(args.paper, args.format)
+    elif args.command == "reviewer-packet":
+        reviewer_packet_command(args.paper, args.format)
+    elif args.command == "approve-phase":
+        approve_phase_command(args.paper, args.phase)
+    elif args.command == "review-thread":
+        review_thread_command(args.paper, args.phase, args.format)
+    elif args.command == "sync-refs":
+        sync_refs_command(args.paper)
+    elif args.command == "verify-refs":
+        verify_refs_command(args.paper)
     elif args.command == "check-structure":
         issues = check_structure_command(args.mode)
         for issue in issues:
@@ -586,6 +1040,26 @@ def create_paper_command(
         if engine:
             config["engine"] = engine
         OmegaConf.save(OmegaConf.create(config), config_path)
+        brief_file = brief_path(target_dir)
+        if brief_file.exists():
+            brief = load_brief(brief_file)
+            brief["paper_id"] = paper_id
+            save_brief(brief_file, brief)
+        refs_file = references_path(target_dir)
+        if refs_file.exists():
+            refs = load_references(refs_file)
+            refs["paper_id"] = paper_id
+            OmegaConf.save(OmegaConf.create(refs), refs_file)
+        evidence_file = evidence_path(target_dir)
+        if evidence_file.exists():
+            evidence = load_evidence(evidence_file)
+            evidence["paper_id"] = paper_id
+            save_evidence(evidence_file, evidence)
+        provenance_file = provenance_path(target_dir)
+        if provenance_file.exists():
+            provenance = load_provenance(provenance_file)
+            provenance["paper_id"] = paper_id
+            save_provenance(provenance_file, provenance)
     else:
         ensure_dir(target_dir)
         for subdir in ["styles", "auto", "figures", "tables"]:
@@ -606,32 +1080,58 @@ def create_paper_command(
             "style": {"TEXINPUTS": ["styles", "."]},
             "build": {"latexmk_args": ["-pdf", "-interaction=nonstopmode"]},
             "inputs": {"metrics_source": "latest"},
+            "quality": {
+                "argument": {
+                    "min_claim_support_ci": 1.0,
+                    "max_orphan_metrics_dev": 0,
+                },
+                "thread": {
+                    "min_alignment_ci": 0.6,
+                },
+            },
         }
         OmegaConf.save(OmegaConf.create(config), target_dir / "truthweave.yml")
 
         main_tex = (
-            "\\\\documentclass{article}\\n"
-            "\\\\input{auto/variables.tex}\\n\\n"
-            "\\\\begin{document}\\n\\n"
-            "Example metric: \\\\BestAccuracy.\\n\\n"
-            "\\\\end{document}\\n"
+            "\\documentclass{article}\n"
+            "\\input{auto/variables.tex}\n\n"
+            "\\begin{document}\n\n"
+            "Example metric: \\MetricMean.\n\n"
+            "\\end{document}\n"
         )
         (target_dir / "main.tex").write_text(main_tex)
 
         refs_bib = (
-            "@article{example2024,\\n"
-            "  title={Example Reference},\\n"
-            "  author={Doe, Jane},\\n"
-            "  journal={Journal of Examples},\\n"
-            "  year={2024}\\n"
-            "}\\n"
+            "@article{example2024,\n"
+            "  title={Example Reference},\n"
+            "  author={Doe, Jane},\n"
+            "  journal={Journal of Examples},\n"
+            "  year={2024}\n"
+            "}\n"
         )
         (target_dir / "refs.bib").write_text(refs_bib)
+        save_brief(brief_path(target_dir), default_brief(paper_id))
+        OmegaConf.save(
+            OmegaConf.create(default_references(paper_id)),
+            references_path(target_dir),
+        )
+        save_evidence(
+            evidence_path(target_dir),
+            default_evidence(paper_id, default_brief(paper_id)),
+        )
+        save_provenance(
+            provenance_path(target_dir),
+            default_provenance(paper_id, default_brief(paper_id)),
+        )
 
     write_discovery_manifest(repo_root)
     allowed_paths = [
         str(target_dir / "truthweave.yml"),
+        str(target_dir / "brief.yml"),
+        str(target_dir / "evidence.yml"),
+        str(target_dir / "data_sources.yml"),
         str(target_dir / "main.tex"),
+        str(target_dir / "references.yml"),
         str(target_dir / "refs.bib"),
     ]
     _print_allowed_files(repo_root, allowed_paths)
@@ -819,4 +1319,3 @@ def _print_allowed_files(repo_root: Path, paths: list[str]) -> None:
             rel = rel.relative_to(repo_root)
         print(f"- {rel}")
     print("Do not create new directories; CI will fail.")
-
