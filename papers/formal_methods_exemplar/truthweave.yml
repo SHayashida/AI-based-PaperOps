@@ -1,0 +1,24 @@
+paper_id: formal_methods_exemplar
+engine: latexmk
+main: main.tex
+bib: refs.bib
+paths:
+  auto_dir: auto
+  figures_dir: figures
+  tables_dir: tables
+style:
+  TEXINPUTS:
+    - styles
+    - .
+build:
+  latexmk_args:
+    - -pdf
+    - -interaction=nonstopmode
+inputs:
+  metrics_source: latest
+quality:
+  argument:
+    min_claim_support_ci: 1.0
+    max_orphan_metrics_dev: 0
+  thread:
+    min_alignment_ci: 0.6

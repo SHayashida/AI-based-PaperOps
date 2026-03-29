@@ -1,0 +1,18 @@
+\documentclass{article}
+\input{auto/variables.tex}
+
+\begin{document}
+
+\section*{Finance ML Exemplar}
+
+This exemplar demonstrates a time-aware finance workflow with an explicit temporal split, declared baselines, and an allowed synthetic-market regime. The paper-facing benchmark metric is \MetricMean.
+
+\section*{Evaluation Contract}
+
+The admissibility contract is encoded in \texttt{brief.yml}: the benchmark uses a walk-forward temporal split, lagged-only features, and explicit transaction-cost declarations. Synthetic data is allowed here because the declared regime is \texttt{synthetic\_market}; the paired benchmark corpus shows that reusing the same source under a real-market contract is blocked.
+
+\section*{Evidence And Replay}
+
+The claim is supported by the generated metric macro, the asset manifest pointer to the concrete run artifact, and the baseline declarations used by the selected finance profile. Reviewers should inspect the reviewer packet for source admissibility and the verification report for replay instructions.
+
+\end{document}

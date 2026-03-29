@@ -1,0 +1,26 @@
+paper_id: finance_exemplar
+sources:
+  - key: example2024
+    query: Example Reference
+    ids: {}
+    intent: background
+    required: true
+    metadata:
+      entry_type: article
+      title: Example Reference
+      authors:
+        - Doe, Jane
+      venue: Journal of Examples
+      year: "2024"
+  - key: backtestguard2025
+    query: Backtest Guardrails
+    ids: {}
+    intent: method
+    required: true
+    metadata:
+      entry_type: article
+      title: Backtest Guardrails
+      authors:
+        - Roe, Alex
+      venue: Synthetic Finance Notes
+      year: "2025"

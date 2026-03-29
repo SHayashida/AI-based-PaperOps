@@ -1,0 +1,22 @@
+paper_id: finance_exemplar
+sources:
+  - source_id: synthetic_market_panel
+    title: Deterministic synthetic market panel used for the finance exemplar.
+    source_type: synthetic
+    acquisition_mode: generated_internal
+    status: verified
+    license_note: Generated inside the repository for reproducible profile demonstrations.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: file
+        path: conf/exp/example.yaml
+        version_note: Example experiment config used for the synthetic panel.
+      - kind: file
+        path: src/truthweave/experiments/example_experiment.py
+        version_note: Deterministic generator for the benchmark metric.
+      - kind: manifest
+        path: auto/MANIFEST.json
+        manifest_pointer: source.run_dir
+        version_note: Run bound to the generated paper assets.
+    snapshot: finance-exemplar-synthetic-market-v1
+    note: Synthetic data is admissible here only because the brief explicitly declares data_regime=synthetic_market. The benchmark corpus shows that the same source would be blocked under a real-market contract.

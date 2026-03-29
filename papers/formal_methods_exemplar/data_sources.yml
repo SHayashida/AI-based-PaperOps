@@ -1,0 +1,22 @@
+paper_id: formal_methods_exemplar
+sources:
+  - source_id: proof_bundle
+    title: Local proof checker and witness artifacts for the formal methods exemplar.
+    source_type: document
+    acquisition_mode: public
+    status: verified
+    license_note: Stored directly in the repository for deterministic verification.
+    reproducibility_level: fully_reproducible
+    pointers:
+      - kind: file
+        path: papers/formal_methods_exemplar/proofs/checker.txt
+        version_note: Checker artifact consumed by the formal profile.
+      - kind: file
+        path: papers/formal_methods_exemplar/proofs/witness.txt
+        version_note: Witness artifact consumed by the formal profile.
+      - kind: manifest
+        path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        version_note: Deterministic run artifact used for the paper-facing witness summary.
+    snapshot: formal-exemplar-proof-bundle-v1
+    note: This exemplar treats proof objects as first-class provenance entries rather than prose-only attachments.

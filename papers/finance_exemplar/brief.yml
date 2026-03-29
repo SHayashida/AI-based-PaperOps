@@ -1,0 +1,57 @@
+paper_id: finance_exemplar
+phase_status: release_ready
+research_profile: finance_ml
+central_claim: A time-aware finance ML workflow is admissible only when temporal protocol, baselines, provenance, and replay targets are declared together.
+so_what: Reviewers can distinguish an explicitly synthetic benchmark from an inadmissible real-market claim and rerun the exact evidence path.
+novelty: The exemplar couples finance-specific evaluation policy with deterministic claim, packet, and verification exports.
+target_reader: Researchers evaluating finance ML reproducibility, backtest validity, and evidence admissibility.
+evaluation_protocol:
+  temporal_split: train_2021_q1_to_2022_q4__validate_2023_q1__test_2023_q2
+  forecast_horizon: one_step_ahead_return_rank
+  leakage_controls: lagged_features_only_with_walk_forward_normalization
+  benchmark: rolling_mean_baseline
+  transaction_cost_model: fixed_bps_5
+  slippage_model: zero_slippage_for_synthetic_market_demo
+  data_regime: synthetic_market
+baselines:
+  - name: rolling_mean_baseline
+    kind: deterministic_baseline
+    artifact_path: auto/MANIFEST.json
+  - name: no_signal_control
+    kind: ablation_control
+    artifact_path: auto/variables.tex
+key_questions:
+  - Does the paper declare a time-aware split and leakage controls before interpreting the reported metric?
+  - Can a reviewer see why synthetic market data is allowed here but would be blocked for real-market claims?
+expected_source_ids:
+  - synthetic_market_panel
+planned_evidence:
+  - claim_id: temporal_protocol_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: The reported finance metric is only admissible because the temporal protocol and synthetic-market regime are explicit.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - synthetic_market_panel
+    prohibited_substitutes: []
+non_goals:
+  - Fully autonomous deployment approval.
+  - Live capital allocation decisions.
+phase_history:
+  - phase: idea_locked
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Finance exemplar thesis fixed.
+  - phase: experiment_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Time-aware protocol declared.
+  - phase: evidence_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Evidence and provenance checked.
+  - phase: draft_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Reviewer packet and verification reviewed.
+  - phase: release_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Exemplar ready for onboarding and CI.

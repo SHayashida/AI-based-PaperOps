@@ -1,0 +1,54 @@
+paper_id: formal_methods_exemplar
+claims:
+  - claim_id: proof_artifact_claim
+    status: supported
+    note: The formal exemplar ties its core claim to exact witness values, proof artifact presence, and manifest provenance.
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - proof_bundle
+        verification:
+          comparison_mode: exact_match
+          expected_value: "0.5101"
+          rerun_scope: run_and_assets
+          rerun_commands:
+            - make run
+            - uv run truthweave build-paper-assets --paper formal_methods_exemplar
+          note: The witness summary must match exactly in the deterministic demo.
+        note: Deterministic witness summary carried into the paper.
+      - kind: artifact
+        artifact_path: papers/formal_methods_exemplar/proofs/checker.txt
+        source_ids:
+          - proof_bundle
+        verification:
+          comparison_mode: file_exists
+          rerun_scope: declaration_only
+          rerun_commands:
+            - uv run truthweave validate-profile --paper formal_methods_exemplar
+          note: The declared checker artifact must remain present.
+        note: Concrete checker artifact referenced by the formal profile.
+      - kind: artifact
+        artifact_path: papers/formal_methods_exemplar/proofs/witness.txt
+        source_ids:
+          - proof_bundle
+        verification:
+          comparison_mode: file_exists
+          rerun_scope: declaration_only
+          rerun_commands:
+            - uv run truthweave validate-profile --paper formal_methods_exemplar
+          note: The declared witness artifact must remain present.
+        note: Concrete witness artifact referenced by the formal profile.
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - proof_bundle
+        verification:
+          comparison_mode: manifest_entry_present
+          rerun_scope: assets_only
+          rerun_commands:
+            - uv run truthweave build-paper-assets --paper formal_methods_exemplar
+          note: Confirm the manifest still ties the paper-facing output to the deterministic run artifact.
+        note: Provenance pointer used by the reviewer packet and verification report.

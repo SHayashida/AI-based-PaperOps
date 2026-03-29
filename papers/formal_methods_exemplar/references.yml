@@ -1,0 +1,26 @@
+paper_id: formal_methods_exemplar
+sources:
+  - key: example2024
+    query: Example Reference
+    ids: {}
+    intent: background
+    required: true
+    metadata:
+      entry_type: article
+      title: Example Reference
+      authors:
+        - Doe, Jane
+      venue: Journal of Examples
+      year: "2024"
+  - key: proofbundle2025
+    query: Proof Bundle Notes
+    ids: {}
+    intent: method
+    required: true
+    metadata:
+      entry_type: article
+      title: Proof Bundle Notes
+      authors:
+        - Poe, Morgan
+      venue: Verified Systems Notes
+      year: "2025"

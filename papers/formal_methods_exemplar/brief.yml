@@ -1,0 +1,45 @@
+paper_id: formal_methods_exemplar
+phase_status: release_ready
+research_profile: formal_methods
+central_claim: Formal-methods results are admissible only when proof checker and witness artifacts are explicitly declared and linked to executable verification targets.
+so_what: Reviewers can inspect concrete proof artifacts, replay verification checks, and see exactly which claim is tied to which local witness.
+novelty: The exemplar combines proof provenance, claim-evidence binding, reviewer packet export, and exact verification in one deterministic workflow.
+target_reader: Researchers evaluating formal methods reproducibility and artifact-backed claims.
+evaluation_protocol:
+  proof_checker_path: papers/formal_methods_exemplar/proofs/checker.txt
+  proof_witness_path: papers/formal_methods_exemplar/proofs/witness.txt
+baselines: []
+key_questions:
+  - Are proof checker and witness artifacts locally inspectable?
+  - Can the core claim be replayed with exact or manifest-based verification?
+expected_source_ids:
+  - proof_bundle
+planned_evidence:
+  - claim_id: proof_artifact_claim
+    required: true
+    verification_required: true
+    experiment: example
+    description: The formal-methods exemplar binds its core claim to declared proof artifacts and exact verification outputs.
+    expected_metrics:
+      - MetricMean
+    source_ids:
+      - proof_bundle
+    prohibited_substitutes: []
+non_goals:
+  - Fully automated theorem discovery without human review.
+phase_history:
+  - phase: idea_locked
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Formal exemplar thesis fixed.
+  - phase: experiment_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Checker and witness declarations completed.
+  - phase: evidence_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Proof bundle linked to evidence.
+  - phase: draft_reviewed
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Reviewer packet and verification reviewed.
+  - phase: release_ready
+    approved_at: "2026-03-29T00:00:00+00:00"
+    note: Exemplar ready for onboarding and CI.

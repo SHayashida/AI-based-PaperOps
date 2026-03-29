@@ -37,3 +37,5 @@ jobs:
         run: uv run truthweave check --mode ci
       - name: Benchmark contracts
         run: make benchmarks
+      - name: Build exemplar demos
+        run: make exemplars

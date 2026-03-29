@@ -1,0 +1,44 @@
+paper_id: finance_exemplar
+claims:
+  - claim_id: temporal_protocol_claim
+    status: supported
+    note: The finance exemplar binds its main claim to the generated metric, explicit manifest provenance, and a baseline declaration artifact.
+    evidence:
+      - kind: variable
+        artifact_path: auto/variables.tex
+        variable: MetricMean
+        source_ids:
+          - synthetic_market_panel
+        verification:
+          comparison_mode: numeric_tolerance
+          expected_value: 0.5101
+          tolerance: 0.0001
+          rerun_scope: run_and_assets
+          rerun_commands:
+            - make run
+            - uv run truthweave build-paper-assets --paper finance_exemplar
+          note: Replay the deterministic metric used in the finance exemplar narrative.
+        note: This is the paper-facing summary metric carried into the finance discussion.
+      - kind: manifest
+        artifact_path: auto/MANIFEST.json
+        manifest_pointer: source.metrics_json_path
+        source_ids:
+          - synthetic_market_panel
+        verification:
+          comparison_mode: manifest_entry_present
+          rerun_scope: assets_only
+          rerun_commands:
+            - uv run truthweave build-paper-assets --paper finance_exemplar
+          note: Confirm the asset manifest still points back to the concrete metrics artifact.
+        note: Provenance pointer tying the paper metric to the deterministic run output.
+      - kind: artifact
+        artifact_path: brief.yml
+        source_ids:
+          - synthetic_market_panel
+        verification:
+          comparison_mode: file_exists
+          rerun_scope: declaration_only
+          rerun_commands:
+            - uv run truthweave validate-profile --paper finance_exemplar
+          note: The benchmark paper itself is part of the finance admissibility contract.
+        note: The brief encodes temporal split, leakage controls, and allowed synthetic regime.

@@ -1,4 +1,4 @@
-.PHONY: run discover assets assets-all refs refs-all provenance provenance-all profile profile-all claims claims-all packet packet-all verify verify-all review review-all paper paper-all check check-all analysis analysis-all benchmarks
+.PHONY: run discover assets assets-all refs refs-all provenance provenance-all profile profile-all claims claims-all packet packet-all verify verify-all review review-all paper paper-all check check-all analysis analysis-all benchmarks exemplars
 
 run:
 	uv run snakemake -j 1 run_example
@@ -121,3 +121,10 @@ analysis-all:
 
 benchmarks:
 	uv run truthweave benchmark-contracts --format md
+
+exemplars: discover
+	@for paper in finance_exemplar formal_methods_exemplar; do \
+		echo "Validating exemplar $$paper"; \
+		uv run truthweave validate-profile --paper $$paper; \
+		uv run truthweave build-paper --paper $$paper; \
+	done

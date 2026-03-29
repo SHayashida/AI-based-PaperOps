@@ -43,17 +43,20 @@ Experiment (conf/exp + src/truthweave/experiments)
   -> PDF
 ```
 
-### Why Two Sample Papers Exist
+### Included Demo Papers
 
-This template intentionally includes two sample papers with different roles:
+This template intentionally includes four papers with different roles:
 
 - `example`: the minimal single-paper baseline used by Quickstart commands.
-- `demo_paper`: a second paper used to demonstrate multi-paper operations (`discover`, `*-all` Make targets, and cross-paper checks).
+- `demo_paper`: a second lightweight paper used to demonstrate multi-paper operations (`discover`, `*-all` Make targets, and cross-paper checks).
+- `finance_exemplar`: a richer finance ML profile demo with explicit temporal protocol, baselines, admissibility declarations, packet export, and verification targets.
+- `formal_methods_exemplar`: a richer formal methods profile demo with proof bundle declarations, exact-match/file-presence verification, packet export, and profile enforcement.
 
-Keeping both in the template lets you test both modes from a clean clone:
+Keeping all four in the template lets you test:
 
 1. single-paper onboarding (`--paper example`)
-2. multi-paper repository workflows (`make assets-all`, `make paper-all`, `make check-all`)
+2. multi-paper repository workflows (`make assets-all`, `make check-all`)
+3. profile-specific exemplar demos (`make exemplars`)
 
 ## Core Workflows
 
@@ -137,6 +140,32 @@ uv run truthweave profile-report --paper <paper_id> --format md
 ```
 
 Profile reports are written to `artifacts/profiles/<paper_id>/profile_report.json` and `artifacts/profiles/<paper_id>/profile_report.md`.
+
+### Profile-Specific Exemplars
+
+Use these two papers as canonical onboarding references:
+
+- `finance_exemplar`
+  This demonstrates a finance ML contract with an explicit temporal split, leakage controls, declared baselines, provenance-aware synthetic-market data, reviewer packet export, and replayable verification. Inspect:
+  [`papers/finance_exemplar/brief.yml`](/Users/linda/Documents/AI-based-PaperOps/papers/finance_exemplar/brief.yml),
+  [`artifacts/profiles/finance_exemplar/profile_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/profiles/finance_exemplar/profile_report.md),
+  [`artifacts/packets/finance_exemplar/packet.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/packets/finance_exemplar/packet.md),
+  [`artifacts/verification/finance_exemplar/verification_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/verification/finance_exemplar/verification_report.md).
+  The important product point is that synthetic data is admissible only because the brief explicitly sets `data_regime: synthetic_market`; the benchmark corpus shows the blocked real-market substitute case.
+
+- `formal_methods_exemplar`
+  This demonstrates a formal methods contract with local checker/witness artifacts, exact-match witness verification, file-presence checks for proof objects, and packet/report exports tied to a declared proof bundle. Inspect:
+  [`papers/formal_methods_exemplar/brief.yml`](/Users/linda/Documents/AI-based-PaperOps/papers/formal_methods_exemplar/brief.yml),
+  [`papers/formal_methods_exemplar/proofs/checker.txt`](/Users/linda/Documents/AI-based-PaperOps/papers/formal_methods_exemplar/proofs/checker.txt),
+  [`artifacts/profiles/formal_methods_exemplar/profile_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/profiles/formal_methods_exemplar/profile_report.md),
+  [`artifacts/packets/formal_methods_exemplar/packet.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/packets/formal_methods_exemplar/packet.md),
+  [`artifacts/verification/formal_methods_exemplar/verification_report.md`](/Users/linda/Documents/AI-based-PaperOps/artifacts/verification/formal_methods_exemplar/verification_report.md).
+
+Build both canonical demos with:
+
+```bash
+make exemplars
+```
 
 ### Claim Evidence Binding
 
@@ -264,7 +293,7 @@ uv run truthweave check --paper <paper_id> --mode ci
 - `truthweave profile-report --paper <paper_id>` writes `artifacts/profiles/<paper_id>/profile_report.json`
 - `truthweave benchmark-contracts` writes `artifacts/benchmarks/benchmark_report.json`
 - `truthweave build-paper --paper <paper_id>` builds the LaTeX paper using the engine in `truthweave.yml`
-- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make profile PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`, `make benchmarks`
+- Make targets: `make assets PAPER=<paper_id>`, `make refs PAPER=<paper_id>`, `make provenance PAPER=<paper_id>`, `make profile PAPER=<paper_id>`, `make claims PAPER=<paper_id>`, `make review PAPER=<paper_id>`, `make packet PAPER=<paper_id>`, `make verify PAPER=<paper_id>`, `make paper PAPER=<paper_id>`, `make benchmarks`, `make exemplars`
 
 ## Workflow Summary: Canonical Paper Flow
 
